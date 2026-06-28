@@ -9,7 +9,7 @@ from .diagnosis import DiagnosisAgent
 from .emergency import EmergencyAgent, is_emergency
 from .lifestyle import LifestyleAgent
 from .medication import MedicationAgent
-from .memory import get_recent_memory, save_conversation_turn, summarize_if_needed
+from .memory import get_recent_memory, log_timeline_event, save_conversation_turn, summarize_if_needed
 from .nutrition import NutritionAgent
 from .report import ReportAgent
 
@@ -72,6 +72,7 @@ async def route_message(
 
     if is_emergency(user_message):
         response = await EmergencyAgent().run(context)
+        log_timeline_event(user_id, "emergency_detected", "Emergency keywords detected", user_message, response.metadata)
         save_conversation_turn(user_id, "assistant", response.content, response.metadata)
         return {"primary_intent": "emergency", "responses": [response.__dict__], "merged_response": response.content}
 
