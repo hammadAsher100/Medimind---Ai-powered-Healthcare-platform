@@ -1,9 +1,6 @@
 import os
 from contextlib import contextmanager
 
-import psycopg2
-from psycopg2.extras import Json, RealDictCursor
-
 
 def _dsn() -> str:
     return (
@@ -17,6 +14,8 @@ def _dsn() -> str:
 
 @contextmanager
 def connection():
+    import psycopg2
+
     conn = psycopg2.connect(_dsn())
     try:
         yield conn
@@ -43,6 +42,8 @@ def ensure_memory_table() -> None:
 
 
 def get_recent_memory(user_id: int, limit: int = 10) -> list[dict]:
+    from psycopg2.extras import RealDictCursor
+
     ensure_memory_table()
     with connection() as conn:
         with conn.cursor(cursor_factory=RealDictCursor) as cur:
@@ -54,6 +55,8 @@ def get_recent_memory(user_id: int, limit: int = 10) -> list[dict]:
 
 
 def save_conversation_turn(user_id: int, role: str, content: str, metadata: dict | None = None) -> None:
+    from psycopg2.extras import Json
+
     ensure_memory_table()
     with connection() as conn:
         with conn.cursor() as cur:
@@ -64,6 +67,8 @@ def save_conversation_turn(user_id: int, role: str, content: str, metadata: dict
 
 
 def log_timeline_event(user_id: int, event_type: str, title: str, description: str, metadata: dict | None = None) -> None:
+    from psycopg2.extras import Json
+
     try:
         with connection() as conn:
             with conn.cursor() as cur:
