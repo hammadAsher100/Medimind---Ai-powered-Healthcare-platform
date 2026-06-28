@@ -63,6 +63,21 @@ def save_conversation_turn(user_id: int, role: str, content: str, metadata: dict
             )
 
 
+def log_timeline_event(user_id: int, event_type: str, title: str, description: str, metadata: dict | None = None) -> None:
+    try:
+        with connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    INSERT INTO timeline_timelineevent (user_id, event_type, title, description, metadata, created_at)
+                    VALUES (%s, %s, %s, %s, %s, NOW())
+                    """,
+                    (user_id, event_type, title, description, Json(metadata or {})),
+                )
+    except Exception:
+        return
+
+
 def summarize_if_needed(memory: list[dict]) -> list[dict]:
     total_words = sum(len(item.get("content", "").split()) for item in memory)
     if total_words <= 2000:
