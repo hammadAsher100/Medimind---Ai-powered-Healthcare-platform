@@ -1,4 +1,5 @@
 import os
+import time
 import uuid
 
 from qdrant_client import QdrantClient
@@ -14,13 +15,21 @@ class QdrantStore:
         )
 
     def create_collection(self) -> None:
-        collections = self.client.get_collections().collections
-        if any(collection.name == self.collection for collection in collections):
-            return
-        self.client.create_collection(
-            collection_name=self.collection,
-            vectors_config=models.VectorParams(size=1024, distance=models.Distance.COSINE),
-        )
+        last_error = None
+        for attempt in range(5):
+            try:
+                collections = self.client.get_collections().collections
+                if any(collection.name == self.collection for collection in collections):
+                    return
+                self.client.create_collection(
+                    collection_name=self.collection,
+                    vectors_config=models.VectorParams(size=1024, distance=models.Distance.COSINE),
+                )
+                return
+            except Exception as exc:
+                last_error = exc
+                time.sleep(2 ** attempt)
+        raise RuntimeError(f"Qdrant collection could not be initialized: {last_error}")
 
     def upsert_documents(self, chunks: list[dict]) -> int:
         points = []

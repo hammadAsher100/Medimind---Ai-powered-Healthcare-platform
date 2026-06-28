@@ -1,5 +1,5 @@
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from agents.coordinator import route_message
 
@@ -9,10 +9,10 @@ router = APIRouter(tags=["agents"])
 class AgentChatRequest(BaseModel):
     user_id: int
     user_message: str
-    medical_profile: dict = {}
-    medical_history: list = []
-    recent_predictions: list = []
-    recent_reports: list = []
+    medical_profile: dict = Field(default_factory=dict)
+    medical_history: list = Field(default_factory=list)
+    recent_predictions: list = Field(default_factory=list)
+    recent_reports: list = Field(default_factory=list)
 
 
 @router.post("/agents/chat")
