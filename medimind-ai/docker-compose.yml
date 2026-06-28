@@ -1,0 +1,148 @@
+services:
+  postgres:
+    image: postgres:15
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - medimind_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    networks:
+      - medimind_network
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow:latest
+    env_file: .env
+    command:
+      - mlflow
+      - server
+      - --host
+      - 0.0.0.0
+      - --port
+      - "5000"
+      - --backend-store-uri
+      - ${MLFLOW_BACKEND_STORE_URI}
+      - --default-artifact-root
+      - ${MLFLOW_ARTIFACT_ROOT}
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_artifacts:/mlartifacts
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medimind_network
+
+  django:
+    build:
+      context: .
+      dockerfile: docker/django.Dockerfile
+    env_file: .env
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn medimind.wsgi:application --bind 0.0.0.0:8000 --workers 4"
+    ports:
+      - "8000:8000"
+    volumes:
+      - django_static:/app/staticfiles
+      - django_media:/app/media
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - medimind_network
+
+  fastapi:
+    build:
+      context: .
+      dockerfile: docker/fastapi.Dockerfile
+    env_file: .env
+    ports:
+      - "8001:8001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_started
+      mlflow:
+        condition: service_started
+    networks:
+      - medimind_network
+
+  prometheus:
+    image: prom/prometheus:latest
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - fastapi
+      - django
+    networks:
+      - medimind_network
+
+  grafana:
+    image: grafana/grafana:latest
+    env_file: .env
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SERVER_ROOT_URL: http://localhost/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    networks:
+      - medimind_network
+
+  nginx:
+    build:
+      context: .
+      dockerfile: docker/nginx.Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - django_static:/staticfiles:ro
+      - django_media:/media:ro
+    depends_on:
+      - django
+      - fastapi
+      - mlflow
+      - grafana
+    networks:
+      - medimind_network
+
+networks:
+  medimind_network:
+    driver: bridge
+
+volumes:
+  pgdata:
+  qdrant_storage:
+  mlflow_artifacts:
+  grafana_data:
+  django_static:
+  django_media:

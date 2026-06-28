@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MediMind Explainability</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 32px; color: #172033; background: #f8fafc; }
+    main { max-width: 960px; margin: 0 auto; }
+    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin-bottom: 16px; }
+    .high { color: #dc2626; }
+    .medium { color: #d97706; }
+    .low { color: #16a34a; }
+    details { border-top: 1px solid #e5e7eb; padding: 12px 0; }
+  </style>
+</head>
+<body>
+<main>
+  <section>
+    <h1>{{ prediction.disease|title }} Risk Explainability</h1>
+    <p class="{{ prediction.risk_level|lower }}">Risk: {{ prediction.risk_percentage|floatformat:1 }}% ({{ prediction.risk_level }})</p>
+  </section>
+  <section>
+    <canvas id="shapChart" height="160"></canvas>
+  </section>
+  <section>
+    <h2>Explanation</h2>
+    <p>{{ prediction.shap_explanation.explanation_text }}</p>
+    <h2>AI Recommendation</h2>
+    <p>{{ prediction.ai_recommendation }}</p>
+  </section>
+  <section>
+    <h2>What does this mean?</h2>
+    {% for item in rag_context %}
+      <details>
+        <summary>{{ item.title|default:"Medical context" }}</summary>
+        <p>{{ item.text }}</p>
+      </details>
+    {% empty %}
+      <p>No knowledge-base context was attached to this prediction.</p>
+    {% endfor %}
+  </section>
+</main>
+<script>
+const labels = {{ labels|safe }};
+const values = {{ values|safe }};
+const colors = {{ colors|safe }};
+new Chart(document.getElementById("shapChart"), {
+  type: "bar",
+  data: { labels, datasets: [{ label: "SHAP contribution", data: values, backgroundColor: colors }] },
+  options: { indexAxis: "y", responsive: true, scales: { x: { beginAtZero: true } } }
+});
+</script>
+</body>
+</html>
