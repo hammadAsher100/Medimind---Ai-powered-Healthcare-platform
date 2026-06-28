@@ -79,10 +79,12 @@ def _predict_with_model(bundle: dict, frame: pd.DataFrame) -> tuple[int, float]:
 
 def _shap_factors(bundle: dict, frame: pd.DataFrame, risk_percentage: float) -> list[dict]:
     explainer = bundle.get("shap_explainer")
+    scaler = bundle.get("scaler")
     values = None
     try:
         if explainer is not None:
-            raw = explainer.shap_values(frame)
+            explainer_input = scaler.transform(frame) if scaler is not None else frame
+            raw = explainer.shap_values(explainer_input) if hasattr(explainer, "shap_values") else explainer(explainer_input).values
             if isinstance(raw, list):
                 raw = raw[-1]
             values = np.asarray(raw)[0]

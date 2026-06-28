@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from model_registry import load_all_models
+from rag.embeddings.cohere_embedder import CohereEmbedder
 from rag.vector_store.qdrant_store import QdrantStore
 from routers import agents, comparison, health_score, knowledge_base, prediction, report_analyzer
 
@@ -17,6 +18,7 @@ async def lifespan(app: FastAPI):
     app.state.models = load_all_models()
     app.state.qdrant_store = QdrantStore()
     app.state.qdrant_store.create_collection()
+    app.state.cohere_embedder = CohereEmbedder()
     yield
 
 
