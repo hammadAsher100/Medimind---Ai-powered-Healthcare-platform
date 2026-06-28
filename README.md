@@ -1,0 +1,1 @@
+# Medimind---Ai-powered-Healthcare-platform
