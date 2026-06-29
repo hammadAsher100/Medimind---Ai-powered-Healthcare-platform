@@ -8,9 +8,10 @@ MODEL = "mistralai/mistral-7b-instruct"
 
 class OpenRouterClient:
     def complete(self, system_prompt: str, user_message: str, temperature: float = 0.3) -> str:
-        api_key = os.environ.get("OPENROUTER_API_KEY")
+        api_key = (os.environ.get("OPENROUTER_API_KEY") or "").strip()
         if not api_key:
             raise RuntimeError("OPENROUTER_API_KEY is not configured.")
+        model = (os.environ.get("OPENROUTER_MODEL") or MODEL).strip()
         response = requests.post(
             OPENROUTER_URL,
             headers={
@@ -20,7 +21,7 @@ class OpenRouterClient:
                 "X-Title": os.environ.get("OPENROUTER_APP_TITLE", "MediMind AI"),
             },
             json={
-                "model": MODEL,
+                "model": model,
                 "messages": [
                     {"role": "system", "content": system_prompt},
                     {"role": "user", "content": user_message},
@@ -29,5 +30,8 @@ class OpenRouterClient:
             },
             timeout=60,
         )
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except requests.HTTPError as exc:
+            raise RuntimeError(f"OpenRouter request failed with {response.status_code}: {response.text[:500]}") from exc
         return response.json()["choices"][0]["message"]["content"]
