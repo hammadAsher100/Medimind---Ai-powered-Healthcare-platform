@@ -7,7 +7,7 @@ MODEL = "embed-english-v3.0"
 
 class CohereEmbedder:
     def __init__(self):
-        api_key = os.environ.get("COHERE_API_KEY")
+        api_key = (os.environ.get("COHERE_API_KEY") or "").strip()
         self.client = cohere.Client(api_key) if api_key else None
 
     def embed_texts(self, texts: list[str], input_type: str = "search_document") -> list[list[float]]:

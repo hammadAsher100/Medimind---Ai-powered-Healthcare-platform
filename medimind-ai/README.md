@@ -54,6 +54,7 @@ docker compose exec fastapi python ml_models/diabetes/train.py --data /app/datas
 - `COHERE_API_KEY`
 - `GROQ_API_KEY`
 - `OPENROUTER_API_KEY`
+- `OPENROUTER_MODEL` defaults to `mistralai/mistral-7b-instruct`
 - `OPENROUTER_HTTP_REFERER`
 - `OPENROUTER_APP_TITLE`
 - `GRAFANA_ADMIN_USER`
