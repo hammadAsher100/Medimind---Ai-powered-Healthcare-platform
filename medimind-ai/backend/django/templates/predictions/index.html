@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-eyebrow">AI Risk Assessment</p>
+    <h2 class="page-title">Choose a disease risk model</h2>
+    <p class="page-subtitle">Run educational AI risk assessments using your current health indicators.</p>
+  </div>
+</div>
+<section class="grid grid-2">
+  <article class="card stat-card"><span class="stat-icon">▣</span><h3>Diabetes Risk</h3><p>Last checked: 3 days ago</p><p><strong>Risk: 67%</strong> <span class="badge badge-danger">High</span></p><a class="btn btn-primary" href="{% url 'prediction_form' 'diabetes' %}">Run New Assessment</a></article>
+  <article class="card stat-card"><span class="stat-icon">♥</span><h3>Heart Disease Risk</h3><p>Last checked: 1 week ago</p><p><strong>Risk: 38%</strong> <span class="badge badge-warning">Moderate</span></p><a class="btn btn-primary" href="{% url 'prediction_form' 'heart' %}">Run New Assessment</a></article>
+  <article class="card stat-card"><span class="stat-icon">◌</span><h3>Kidney Disease Risk</h3><p>Last checked: 2 weeks ago</p><p><strong>Risk: 18%</strong> <span class="badge badge-success">Low</span></p><a class="btn btn-primary" href="{% url 'prediction_form' 'kidney' %}">Run New Assessment</a></article>
+  <article class="card stat-card"><span class="stat-icon">◎</span><h3>Stroke Risk</h3><p>Never assessed</p><p><strong>Risk: —</strong> <span class="badge badge-info">Not Run</span></p><a class="btn btn-primary" href="{% url 'prediction_form' 'stroke' %}">Run New Assessment</a></article>
+</section>
+{% endblock %}

@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="card" style="min-height:calc(100vh - 136px); display:grid; grid-template-rows:auto auto 1fr auto; gap:18px;">
+  <header style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:18px;">
+    <div><h2 class="page-title" style="font-size:24px;">MediMind AI Assistant</h2><p class="page-subtitle">Your personal medical AI, powered by LLaMA 3.3-70B.</p></div>
+    <button class="btn btn-secondary" id="clearChat">Clear</button>
+  </header>
+  <div class="filter-bar">
+    <button class="btn btn-secondary quick" data-text="I have symptoms and want educational guidance.">Analyze Symptoms</button>
+    <button class="btn btn-secondary quick" data-text="Explain my latest report in plain language.">Explain My Report</button>
+    <button class="btn btn-secondary quick" data-text="Create a nutrition plan based on my health profile.">Nutrition Plan</button>
+    <button class="btn btn-secondary quick" data-text="Suggest an exercise plan for my health goals.">Exercise Plan</button>
+    <button class="btn btn-secondary quick" data-text="Explain medication side effects without dosage advice.">Medication Info</button>
+    <button class="btn btn-secondary quick" data-text="Help me choose a risk assessment.">Risk Assessment</button>
+  </div>
+  <div id="emergencyBanner" class="disclaimer" style="display:none; border-color:rgba(239,68,68,0.3); background:var(--danger-soft); color:var(--danger);">🚨 EMERGENCY DETECTED — If this is a medical emergency, call emergency services immediately.</div>
+  <div id="messages" style="overflow:auto; display:grid; align-content:start; gap:14px;">
+    <div style="max-width:720px; display:flex; gap:10px;"><span class="avatar">♥</span><div class="card" style="box-shadow:none; border-radius:18px 18px 18px 4px;"><strong>Hello, I am your MediMind AI health assistant.</strong><p>I can help with symptom education, report explanation, nutrition planning, and lifestyle guidance.</p><p class="hint">For educational purposes only. Always consult a doctor for medical decisions.</p></div></div>
+  </div>
+  <form id="chatForm" style="display:grid; grid-template-columns:42px 1fr auto; gap:10px; border-top:1px solid var(--border); padding-top:18px;">
+    <button class="btn btn-secondary" type="button">⌁</button>
+    <input id="chatInput" placeholder="Type your health question..." required>
+    <button class="btn btn-primary" type="submit">Send →</button>
+  </form>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+const messages = document.getElementById("messages");
+function bubble(role, text, agents="") {
+  const wrap = document.createElement("div");
+  wrap.style.maxWidth = "760px";
+  wrap.style.justifySelf = role === "user" ? "end" : "start";
+  wrap.innerHTML = role === "user"
+    ? `<div style="background:var(--accent); color:var(--white); padding:14px 16px; border-radius:18px 18px 4px 18px;">${text}</div>`
+    : `<div style="display:flex; gap:10px;"><span class="avatar">♥</span><div class="card" style="box-shadow:none; border-radius:18px 18px 18px 4px;">${text}${agents ? `<p class="hint">Agents: ${agents}</p>` : ""}</div></div>`;
+  messages.appendChild(wrap);
+  messages.scrollTop = messages.scrollHeight;
+}
+document.querySelectorAll(".quick").forEach(btn => btn.addEventListener("click", () => document.getElementById("chatInput").value = btn.dataset.text));
+document.getElementById("clearChat").addEventListener("click", () => messages.innerHTML = "");
+document.getElementById("chatForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const input = document.getElementById("chatInput");
+  const text = input.value.trim();
+  if (!text) return;
+  bubble("user", text);
+  input.value = "";
+  const emergency = ["chest pain","difficulty breathing","loss of consciousness","severe bleeding","stroke symptoms"].some(k => text.toLowerCase().includes(k));
+  document.getElementById("emergencyBanner").style.display = emergency ? "flex" : "none";
+  bubble("ai", "<span class='typing'>MediMind is thinking...</span>");
+  try {
+    const data = await API.post("/agents/chat", { user_id: {{ request.user.id }}, user_message: text }, true);
+    messages.lastElementChild.remove();
+    bubble("ai", data.merged_response || "I could not generate a response.", (data.responses || []).map(r => r.agent_name).join(" • "));
+  } catch (error) {
+    messages.lastElementChild.remove();
+    notify.error("Assistant connection failed. Please try again.");
+  }
+});
+</script>
+{% endblock %}

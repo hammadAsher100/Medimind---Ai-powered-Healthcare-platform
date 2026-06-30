@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div><p class="page-eyebrow">Reports</p><h2 class="page-title">Medical Reports</h2><p class="page-subtitle">Review uploaded reports, AI findings, and analysis status.</p></div>
+  <a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload New Report</a>
+</div>
+<section class="card">
+  <div class="filter-bar">
+    <select><option>All Types</option><option>Blood</option><option>Lab</option><option>Imaging</option></select>
+    <select><option>This Month</option><option>Last 3 Months</option><option>This Year</option></select>
+    <select><option>Status: All</option><option>Analyzed</option><option>Processing</option><option>Failed</option></select>
+    <input class="search-input" type="search" placeholder="Search reports...">
+  </div>
+  {% if reports %}
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead><tr><th>#</th><th>Report Name</th><th>Type</th><th>Uploaded</th><th>Status</th><th>Key Finding</th><th>Action</th></tr></thead>
+        <tbody>
+          {% for report in reports %}
+            <tr>
+              <td>{{ forloop.counter }}</td>
+              <td>{{ report.file.name|default:"Medical report" }}</td>
+              <td>{{ report.get_report_type_display }}</td>
+              <td>{{ report.uploaded_at|date:"M d, Y" }}</td>
+              <td><span class="badge badge-success">Analyzed</span></td>
+              <td>{{ report.summary|default:"Clinical values ready for review"|truncatechars:70 }}</td>
+              <td><a class="btn btn-secondary" href="{% url 'report_detail_page' report.id %}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state"><div><strong>No reports yet</strong><p>Upload your first medical report to get started.</p><a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload Report →</a></div></div>
+  {% endif %}
+</section>
+{% endblock %}

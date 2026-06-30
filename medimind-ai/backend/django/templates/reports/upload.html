@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><p class="page-eyebrow">Reports</p><h2 class="page-title">Upload Report</h2><p class="page-subtitle">Upload a PDF report for AI extraction, lab-value review, and plain-English guidance.</p></div></div>
+<form class="card" id="uploadReportForm" enctype="multipart/form-data">
+  <label class="upload-zone" id="uploadZone">
+    <input id="reportFile" name="file" type="file" accept="application/pdf" hidden required>
+    <div><div style="font-size:48px;">▤</div><strong>Drop your PDF here</strong><p>or <span style="color:var(--accent); font-weight:700;">Browse Files</span></p><p>Supported: PDF files up to 50MB. Blood reports, lab reports, imaging reports.</p></div>
+  </label>
+  <div id="fileInfo" class="card" style="display:none; margin-top:18px; box-shadow:none;"></div>
+  <div class="form-grid" style="margin-top:18px;">
+    <div class="form-group"><label>Report Type</label><select name="report_type"><option value="blood">Blood Report</option><option value="lab">Lab Report</option><option value="imaging">Imaging</option><option value="other">Other</option></select></div>
+    <div class="form-group"><label>Report Date</label><input name="report_date" type="date"></div>
+    <div class="form-group" style="grid-column:1/-1;"><label>Notes</label><textarea name="notes" placeholder="Add appointment context, symptoms, or questions for your clinician."></textarea></div>
+  </div>
+  <button class="btn btn-primary" style="margin-top:18px;" type="submit">Analyze Report</button>
+</form>
+{% endblock %}
+{% block extra_js %}
+<script>
+const fileInput = document.getElementById("reportFile");
+fileInput.addEventListener("change", () => {
+  const file = fileInput.files[0];
+  if (!file) return;
+  document.getElementById("fileInfo").style.display = "block";
+  document.getElementById("fileInfo").innerHTML = `<strong>${file.name}</strong><p>${(file.size / 1024 / 1024).toFixed(2)} MB selected</p>`;
+});
+document.getElementById("uploadReportForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const formData = new FormData(event.target);
+  showLoading("Analyzing your report: PDF uploaded, extracting text, AI reviewing values...");
+  try {
+    await API.upload("/reports/upload/", formData);
+    notify.success("Report analyzed successfully");
+    window.location.href = "/reports/";
+  } catch (error) {
+    notify.error("Report upload failed. Please try a clear PDF file.");
+  } finally {
+    hideLoading();
+  }
+});
+</script>
+{% endblock %}

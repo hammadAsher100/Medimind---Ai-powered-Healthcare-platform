@@ -1,0 +1,28 @@
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector(".prediction-form");
+  if (!form) return;
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const disease = form.dataset.disease;
+    const data = {};
+    new FormData(form).forEach((value, key) => {
+      const input = form.elements[key];
+      if (input && input.type === "number") data[key] = Number(value);
+      else if (["hypertension","heart_disease"].includes(key) && disease === "stroke") data[key] = Number(value);
+      else data[key] = value;
+    });
+    showLoading("Analyzing your risk factors...");
+    try {
+      const result = await API.post(`/predict/${disease}`, data, true);
+      sessionStorage.setItem("prediction_result", JSON.stringify(result));
+      sessionStorage.setItem("prediction_input", JSON.stringify(data));
+      window.location.href = "/predictions/result/";
+    } catch (error) {
+      notify.error("Risk analysis failed. Check your entries and try again.");
+    } finally {
+      hideLoading();
+    }
+  });
+});
+</script>

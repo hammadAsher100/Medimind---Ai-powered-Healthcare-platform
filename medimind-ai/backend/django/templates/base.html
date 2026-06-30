@@ -1,0 +1,86 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ page_title|default:"MediMind AI" }} | MediMind AI</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/sidebar.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components.css' %}">
+  <link rel="stylesheet" href="{% static 'css/charts.css' %}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <a class="sidebar-brand" href="{% url 'dashboard_page' %}">
+        <span class="brand-mark">♥</span>
+        <span>MediMind AI</span>
+      </a>
+      <nav class="sidebar-nav" aria-label="Main navigation">
+        <div class="nav-section">Main</div>
+        <a class="nav-link" href="{% url 'dashboard_page' %}"><span class="nav-icon">⊞</span>Dashboard</a>
+        <a class="nav-link" href="{% url 'health_score_page' %}"><span class="nav-icon">◌</span>Health Score</a>
+        <a class="nav-link" href="{% url 'timeline_page' %}"><span class="nav-icon">◎</span>Timeline</a>
+
+        <div class="nav-section">Predictions</div>
+        <a class="nav-link" href="{% url 'predictions_page' %}"><span class="nav-icon">▣</span>Risk Assessment</a>
+
+        <div class="nav-section">Reports</div>
+        <a class="nav-link" href="{% url 'reports_page' %}"><span class="nav-icon">▤</span>My Reports</a>
+        <a class="nav-link" href="{% url 'upload_report_page' %}"><span class="nav-icon">⇧</span>Upload Report</a>
+        <a class="nav-link" href="{% url 'compare_reports_page' %}"><span class="nav-icon">↔</span>Compare Reports</a>
+
+        <div class="nav-section">AI Assistant</div>
+        <a class="nav-link" href="{% url 'assistant_page' %}"><span class="nav-icon">◍</span>Medical Assistant</a>
+
+        <div class="nav-section">Account</div>
+        <a class="nav-link" href="{% url 'profile_page' %}"><span class="nav-icon">◉</span>My Profile</a>
+        {% if request.user.is_staff %}
+          <a class="nav-link" href="{% url 'mlops_page' %}"><span class="nav-icon">⚙</span>MLOps</a>
+        {% endif %}
+      </nav>
+      <div class="sidebar-user">
+        <div class="user-card">
+          <span class="avatar">{{ request.user.first_name|first|default:request.user.username|first|upper }}{{ request.user.last_name|first|upper }}</span>
+          <div class="user-meta">
+            <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+            <span>{% if request.user.is_staff %}Admin Account{% else %}Patient Account{% endif %}</span>
+          </div>
+        </div>
+        <a class="signout" data-sign-out href="{% url 'logout_page' %}">→ Sign Out</a>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <div style="display:flex; align-items:center; gap:12px;">
+          <button class="mobile-menu" data-sidebar-toggle aria-label="Open navigation">☰</button>
+          <h1>{{ page_title|default:"Dashboard" }}</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="notification" aria-label="Notifications">⌁</span>
+          <span class="avatar">{{ request.user.first_name|first|default:request.user.username|first|upper }}{{ request.user.last_name|first|upper }}</span>
+        </div>
+      </header>
+      <section class="content">
+        {% block content %}{% endblock %}
+      </section>
+    </main>
+  </div>
+  <div class="loading-overlay" data-loading-overlay>
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <strong data-loading-message>Processing your request...</strong>
+      <p class="stat-note">MediMind AI is working on your request.</p>
+    </div>
+  </div>
+  <script src="{% static 'js/notifications.js' %}"></script>
+  <script src="{% static 'js/api.js' %}"></script>
+  <script src="{% static 'js/charts.js' %}"></script>
+  <script src="{% static 'js/sidebar.js' %}"></script>
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

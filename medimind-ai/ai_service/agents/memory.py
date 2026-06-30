@@ -44,26 +44,32 @@ def ensure_memory_table() -> None:
 def get_recent_memory(user_id: int, limit: int = 10) -> list[dict]:
     from psycopg2.extras import RealDictCursor
 
-    ensure_memory_table()
-    with connection() as conn:
-        with conn.cursor(cursor_factory=RealDictCursor) as cur:
-            cur.execute(
-                "SELECT role, content, metadata, created_at FROM conversation_memory WHERE user_id=%s ORDER BY created_at DESC LIMIT %s",
-                (user_id, limit),
-            )
-            return list(reversed(cur.fetchall()))
+    try:
+        ensure_memory_table()
+        with connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT role, content, metadata, created_at FROM conversation_memory WHERE user_id=%s ORDER BY created_at DESC LIMIT %s",
+                    (user_id, limit),
+                )
+                return list(reversed(cur.fetchall()))
+    except Exception:
+        return []
 
 
 def save_conversation_turn(user_id: int, role: str, content: str, metadata: dict | None = None) -> None:
     from psycopg2.extras import Json
 
-    ensure_memory_table()
-    with connection() as conn:
-        with conn.cursor() as cur:
-            cur.execute(
-                "INSERT INTO conversation_memory (user_id, role, content, metadata) VALUES (%s, %s, %s, %s)",
-                (user_id, role, content, Json(metadata or {})),
-            )
+    try:
+        ensure_memory_table()
+        with connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO conversation_memory (user_id, role, content, metadata) VALUES (%s, %s, %s, %s)",
+                    (user_id, role, content, Json(metadata or {})),
+                )
+    except Exception:
+        return
 
 
 def log_timeline_event(user_id: int, event_type: str, title: str, description: str, metadata: dict | None = None) -> None:

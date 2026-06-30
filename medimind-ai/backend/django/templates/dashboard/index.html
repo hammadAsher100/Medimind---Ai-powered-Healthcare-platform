@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-eyebrow">Patient Command Center</p>
+    <h2 class="page-title">Welcome back, {{ request.user.first_name|default:request.user.username }}</h2>
+    <p class="page-subtitle">Track risk assessments, reports, timeline activity, and AI recommendations from one clinical workspace.</p>
+  </div>
+  <a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload Report</a>
+</div>
+
+<section class="grid grid-4">
+  <article class="card stat-card">
+    <span class="stat-icon">◌</span>
+    <p class="stat-label">Health Score</p>
+    <p class="stat-value">{% if latest_score %}{{ latest_score.score }} / 100{% else %}84 / 100{% endif %}</p>
+    <p class="stat-note">↑ +3 this month</p>
+  </article>
+  <article class="card stat-card">
+    <span class="stat-icon">▤</span>
+    <p class="stat-label">Reports</p>
+    <p class="stat-value">{{ reports_count|default:12 }}</p>
+    <p class="stat-note">3 this week</p>
+  </article>
+  <article class="card stat-card">
+    <span class="stat-icon">▣</span>
+    <p class="stat-label">Predictions</p>
+    <p class="stat-value">{{ predictions_count|default:8 }}</p>
+    <p class="stat-note">Last: Heart</p>
+  </article>
+  <article class="card stat-card">
+    <span class="stat-icon">!</span>
+    <p class="stat-label">Risk Level</p>
+    <p class="stat-value" style="font-size:24px;">Moderate</p>
+    <p class="stat-note">2 high risks require attention</p>
+  </article>
+</section>
+
+<section class="grid grid-60-40" style="margin-top:24px;">
+  <article class="card">
+    <h3 class="card-title">Health Score History</h3>
+    <div class="chart-wrap"><canvas id="healthTrend"></canvas></div>
+  </article>
+  <article class="card">
+    <h3 class="card-title">Current Risk Levels</h3>
+    <a class="risk-bar" href="{% url 'prediction_form' 'diabetes' %}"><strong>Diabetes</strong><span class="bar-track"><span class="bar-fill high" style="width:67%"></span></span><span>67%</span><span class="badge badge-danger">High</span></a>
+    <a class="risk-bar" href="{% url 'prediction_form' 'heart' %}"><strong>Heart</strong><span class="bar-track"><span class="bar-fill moderate" style="width:38%"></span></span><span>38%</span><span class="badge badge-warning">Moderate</span></a>
+    <a class="risk-bar" href="{% url 'prediction_form' 'kidney' %}"><strong>Kidney</strong><span class="bar-track"><span class="bar-fill low" style="width:18%"></span></span><span>18%</span><span class="badge badge-success">Low</span></a>
+    <a class="risk-bar" href="{% url 'prediction_form' 'stroke' %}"><strong>Stroke</strong><span class="bar-track"><span class="bar-fill low" style="width:24%"></span></span><span>24%</span><span class="badge badge-success">Low</span></a>
+  </article>
+</section>
+
+<section class="grid grid-2" style="margin-top:24px;">
+  <article class="card">
+    <h3 class="card-title">Recent Reports</h3>
+    {% if reports %}
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Report Type</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+          <tbody>
+            {% for report in reports %}
+              <tr><td>{{ report.get_report_type_display }}</td><td>{{ report.uploaded_at|date:"M d, Y" }}</td><td><span class="badge badge-success">Analyzed</span></td><td><a class="btn btn-secondary" href="{% url 'report_detail_page' report.id %}">View</a></td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <div class="empty-state"><div><strong>No reports yet</strong><p>Upload your first medical report to get started.</p><a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload Report</a></div></div>
+    {% endif %}
+  </article>
+  <article class="card">
+    <h3 class="card-title">Recent Timeline</h3>
+    <div class="timeline-list">
+      {% for event in timeline_events %}
+        <div class="timeline-item"><span class="timeline-dot {{ event.event_type }}"></span><div class="timeline-content"><h4>{{ event.title }}</h4><p>{{ event.description }}</p><span class="timeline-date">{{ event.created_at|date:"M d, Y" }}</span></div></div>
+      {% empty %}
+        <div class="empty-state"><div><strong>No activity yet</strong><p>Your reports, scores, and AI actions will appear here.</p></div></div>
+      {% endfor %}
+    </div>
+  </article>
+</section>
+
+<section class="card" style="margin-top:24px;">
+  <h3 class="card-title">AI Health Recommendations</h3>
+  <div class="grid grid-3">
+    <article class="card" style="box-shadow:none;"><span class="stat-icon" style="position:static;">▦</span><h4>Review cholesterol trends</h4><p>Compare your recent lipid panels and ask your clinician about sustained LDL elevation.</p></article>
+    <article class="card" style="box-shadow:none;"><span class="stat-icon" style="position:static;">◌</span><h4>Keep daily movement consistent</h4><p>Maintain moderate exercise most days to support blood pressure and glucose control.</p></article>
+    <article class="card" style="box-shadow:none;"><span class="stat-icon" style="position:static;">◍</span><h4>Use the AI assistant</h4><p>Ask for plain-English explanations of report findings before your next appointment.</p></article>
+  </div>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  makeLineChart(document.getElementById("healthTrend"), ["Jan","Feb","Mar","Apr","May","Jun"], [76,78,80,81,83,{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %}]);
+});
+</script>
+{% endblock %}

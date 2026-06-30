@@ -1,0 +1,35 @@
+.chart-wrap {
+  position: relative;
+  min-height: 300px;
+}
+
+.chart-wrap.small { min-height: 220px; }
+
+.donut-score {
+  width: 220px;
+  height: 220px;
+  margin: 0 auto;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--accent) calc(var(--score, 84) * 1%), var(--border) 0);
+}
+
+.donut-score-inner {
+  width: 148px;
+  height: 148px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--white);
+  color: var(--text-dark);
+  text-align: center;
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
+.donut-score-inner strong {
+  display: block;
+  font-size: 32px;
+  line-height: 1;
+  font-weight: 800;
+}

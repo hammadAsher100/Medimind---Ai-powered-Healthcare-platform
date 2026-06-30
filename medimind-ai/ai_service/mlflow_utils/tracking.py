@@ -1,9 +1,9 @@
 import os
 
-import mlflow
-
 
 def configure_mlflow() -> None:
+    import mlflow
+
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
     if tracking_uri:
         mlflow.set_tracking_uri(tracking_uri)
@@ -11,6 +11,8 @@ def configure_mlflow() -> None:
 
 def log_prediction(disease: str, payload: dict, result: dict) -> None:
     try:
+        import mlflow
+
         configure_mlflow()
         mlflow.set_experiment("production_predictions")
         with mlflow.start_run(run_name=f"{disease}_prediction"):

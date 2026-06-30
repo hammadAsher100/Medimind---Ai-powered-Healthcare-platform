@@ -1,0 +1,88 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Create Account | MediMind AI</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components.css' %}">
+</head>
+<body class="auth-body">
+  <section class="auth-brand">
+    <div class="auth-logo"><span class="brand-mark">♥</span><span>MediMind AI</span></div>
+    <div class="auth-copy">
+      <h1>Start your intelligent health journey</h1>
+      <p>Create a secure patient account for AI-guided insights, report summaries, and health progress tracking.</p>
+      <div class="feature-list">
+        <div class="feature-item"><span class="feature-icon">▣</span>Disease Risk Prediction</div>
+        <div class="feature-item"><span class="feature-icon">▤</span>AI Report Analysis</div>
+        <div class="feature-item"><span class="feature-icon">◍</span>Personalized Health Assistant</div>
+      </div>
+    </div>
+    <strong>Trusted by Healthcare Professionals</strong>
+  </section>
+  <section class="auth-panel">
+    <form class="auth-form" id="registerForm">
+      <h2>Create Account</h2>
+      <p class="subtitle">Build your MediMind patient profile</p>
+      <div class="form-grid">
+        <div class="form-group"><label>First name</label><input name="first_name" required></div>
+        <div class="form-group"><label>Last name</label><input name="last_name" required></div>
+        <div class="form-group" style="grid-column:1/-1;"><label>Email</label><input name="email" type="email" required></div>
+        <div class="form-group"><label>Password</label><input name="password" type="password" minlength="8" required></div>
+        <div class="form-group"><label>Confirm password</label><input name="confirm_password" type="password" minlength="8" required></div>
+        <div class="form-group"><label>Date of birth</label><input name="date_of_birth" type="date"></div>
+        <div class="form-group"><label>Phone number</label><input name="phone_number" type="tel"></div>
+        <div class="form-group" style="grid-column:1/-1;">
+          <span class="field-label">Gender</span>
+          <div class="radio-pills">
+            <label class="radio-pill"><input type="radio" name="gender" value="male"><span>Male</span></label>
+            <label class="radio-pill"><input type="radio" name="gender" value="female"><span>Female</span></label>
+            <label class="radio-pill"><input type="radio" name="gender" value="other"><span>Other</span></label>
+          </div>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-full btn-lg" style="margin-top:22px;" type="submit">Create Account</button>
+      <div class="auth-divider">or</div>
+      <p style="text-align:center;">Already registered? <a style="color:var(--accent); font-weight:700;" href="{% url 'login_page' %}">Sign in</a></p>
+    </form>
+  </section>
+  <div class="loading-overlay" data-loading-overlay>
+    <div class="loading-card"><div class="spinner"></div><strong data-loading-message>Creating your account...</strong></div>
+  </div>
+  <script src="{% static 'js/notifications.js' %}"></script>
+  <script src="{% static 'js/api.js' %}"></script>
+  <script>
+    document.getElementById("registerForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      if (form.password.value !== form.confirm_password.value) {
+        notify.warning("Passwords must match.");
+        return;
+      }
+      showLoading("Creating your account...");
+      try {
+        const email = form.email.value.trim();
+        const data = await API.post("/auth/register/", {
+          username: email,
+          email,
+          first_name: form.first_name.value,
+          last_name: form.last_name.value,
+          password: form.password.value,
+          date_of_birth: form.date_of_birth.value || null,
+          gender: new FormData(form).get("gender") || "",
+          phone_number: form.phone_number.value
+        });
+        API.setTokens(data.access, data.refresh);
+        notify.success("Your MediMind account is ready.");
+        window.location.href = "/dashboard/";
+      } catch (error) {
+        notify.error("Account creation failed. Please check the form and try again.");
+      } finally {
+        hideLoading();
+      }
+    });
+  </script>
+</body>
+</html>

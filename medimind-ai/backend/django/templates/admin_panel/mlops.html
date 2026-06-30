@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><p class="page-eyebrow">Admin Only</p><h2 class="page-title">MLOps Dashboard</h2><p class="page-subtitle">Model performance, experiment tracking, system usage, and knowledge-base operations.</p></div></div>
+<section class="grid grid-4">
+  <article class="card"><h3>Diabetes</h3><p>Accuracy: 89.2%</p><p>AUC-ROC: 0.93</p><p>F1: 0.87</p><span class="badge badge-success">v2.1 Active</span></article>
+  <article class="card"><h3>Heart</h3><p>Accuracy: 86.7%</p><p>AUC-ROC: 0.91</p><p>F1: 0.84</p><span class="badge badge-success">v1.8 Active</span></article>
+  <article class="card"><h3>Kidney</h3><p>Accuracy: 94.1%</p><p>AUC-ROC: 0.97</p><p>F1: 0.93</p><span class="badge badge-success">v3.0 Active</span></article>
+  <article class="card"><h3>Stroke</h3><p>Accuracy: 82.3%</p><p>AUC-ROC: 0.88</p><p>F1: 0.80</p><span class="badge badge-success">v1.5 Active</span></article>
+</section>
+<section class="card" style="margin-top:24px;"><h3 class="card-title">MLflow</h3><iframe src="{{ MLFLOW_URL }}" style="width:100%; height:600px; border:none; border-radius:12px;"></iframe></section>
+<section class="grid grid-4" style="margin-top:24px;">
+  <article class="card stat-card"><p class="stat-label">Total Predictions</p><p class="stat-value">{{ total_predictions }}</p></article>
+  <article class="card stat-card"><p class="stat-label">Reports Analyzed</p><p class="stat-value">{{ reports_analyzed }}</p></article>
+  <article class="card stat-card"><p class="stat-label">Active Users</p><p class="stat-value">{{ active_users }}</p></article>
+  <article class="card stat-card"><p class="stat-label">Avg Response Time</p><p class="stat-value">1.8s</p></article>
+</section>
+<section class="card" style="margin-top:24px;"><div style="display:flex; justify-content:space-between;"><h3 class="card-title">Knowledge Base Manager</h3><button class="btn btn-primary">Upload Document</button></div><table class="data-table"><thead><tr><th>Document Name</th><th>Type</th><th>Pages</th><th>Indexed</th><th>Date Added</th><th>Action</th></tr></thead><tbody><tr><td>ADA Diabetes Guidance</td><td>PDF</td><td>42</td><td><span class="badge badge-success">Indexed</span></td><td>Jun 29, 2026</td><td><button class="btn btn-secondary">Delete</button></td></tr></tbody></table></section>
+{% endblock %}

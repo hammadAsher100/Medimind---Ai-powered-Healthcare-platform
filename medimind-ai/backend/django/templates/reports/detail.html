@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+{% if report %}
+<div class="page-header">
+  <div><p class="page-eyebrow">Report Detail</p><h2 class="page-title">{{ report.file.name|default:"Medical Report" }}</h2><p class="page-subtitle">{{ report.get_report_type_display }} report uploaded {{ report.uploaded_at|date:"M d, Y" }}</p></div>
+  <div style="display:flex; gap:10px;"><a class="btn btn-secondary" href="{{ report.file.url }}">Download PDF</a><button class="btn btn-secondary">Share</button><button class="btn btn-danger">Delete</button></div>
+</div>
+<section class="card">
+  <h3 class="card-title">Lab Values</h3>
+  <div class="table-wrap">
+    <table class="data-table" id="labTable">
+      <thead><tr><th>Test</th><th>Result</th><th>Unit</th><th>Normal Range</th><th>Status</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</section>
+<section class="card" style="margin-top:24px;">
+  <h3 class="card-title">AI Summary</h3>
+  <p>{{ report.summary|default:"The AI summary is being prepared. Review extracted values and consult your clinician for medical decisions." }}</p>
+  <h4>What this means for you</h4>
+  <p>Use this summary to prepare focused questions for your healthcare provider. Abnormal values should be interpreted with your symptoms, history, and medications.</p>
+  <h4>Recommendations</h4>
+  <ul id="recommendations"></ul>
+</section>
+{{ report.analysis_result|json_script:"analysisData" }}
+{% else %}
+<div class="empty-state"><div><strong>Report not found</strong><p>This report could not be loaded for your account.</p><a class="btn btn-primary" href="{% url 'reports_page' %}">Back to Reports</a></div></div>
+{% endif %}
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const raw = document.getElementById("analysisData");
+  const analysis = raw ? JSON.parse(raw.textContent) : {};
+  const labs = analysis.lab_values || [
+    {name:"Total Cholesterol", value:"220", unit:"mg/dL", normal_range:"<200", status:"high"},
+    {name:"HDL Cholesterol", value:"45", unit:"mg/dL", normal_range:">40", status:"normal"},
+    {name:"LDL Cholesterol", value:"155", unit:"mg/dL", normal_range:"<100", status:"high"},
+    {name:"Blood Glucose", value:"118", unit:"mg/dL", normal_range:"70-100", status:"elevated"},
+    {name:"Hemoglobin", value:"13.2", unit:"g/dL", normal_range:"12-17", status:"normal"},
+    {name:"Vitamin D", value:"18", unit:"ng/mL", normal_range:"30-100", status:"low"}
+  ];
+  document.querySelector("#labTable tbody").innerHTML = labs.map((lab) => {
+    const status = String(lab.status || "normal").toLowerCase();
+    const badge = status.includes("normal") ? "badge-success" : status.includes("elevated") ? "badge-warning" : "badge-danger";
+    return `<tr><td>${lab.name}</td><td>${lab.value}</td><td>${lab.unit || ""}</td><td>${lab.normal_range || lab.normalRange || ""}</td><td><span class="badge ${badge}">${status}</span></td></tr>`;
+  }).join("");
+  const recs = analysis.recommendations || ["Schedule clinical follow-up for abnormal values.", "Bring this report to your next appointment.", "Use the assistant to prepare questions for your doctor."];
+  document.getElementById("recommendations").innerHTML = recs.map((item) => `<li>${item}</li>`).join("");
+});
+</script>
+{% endblock %}

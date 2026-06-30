@@ -1,9 +1,21 @@
+from django.contrib.auth import login as django_login
+from django.contrib.auth import logout as django_logout
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import LoginSerializer, RegisterSerializer, UserProfileSerializer
+
+
+def _session_request(request):
+    return getattr(request, "_request", request)
+
+
+def _login_browser_session(request, user):
+    django_request = _session_request(request)
+    django_login(django_request, user)
+    django_request.session.save()
 
 
 class RegisterView(generics.CreateAPIView):
@@ -14,6 +26,7 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        _login_browser_session(request, user)
         refresh = RefreshToken.for_user(user)
         return Response(
             {
@@ -32,6 +45,7 @@ class LoginView(APIView):
         serializer = LoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
+        _login_browser_session(request, user)
         refresh = RefreshToken.for_user(user)
         return Response(
             {
@@ -51,6 +65,7 @@ class LogoutView(APIView):
             RefreshToken(refresh_token).blacklist()
         except Exception:
             return Response({"detail": "Invalid refresh token."}, status=status.HTTP_400_BAD_REQUEST)
+        django_logout(_session_request(request))
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 

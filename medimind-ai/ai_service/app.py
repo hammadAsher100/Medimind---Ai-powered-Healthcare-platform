@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 
 from dotenv import load_dotenv
 from fastapi import FastAPI
@@ -16,8 +17,14 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.models = load_all_models()
-    app.state.qdrant_store = QdrantStore()
-    app.state.qdrant_store.create_collection()
+    if os.environ.get("DISABLE_QDRANT", "False").lower() == "true":
+        app.state.qdrant_store = None
+    else:
+        try:
+            app.state.qdrant_store = QdrantStore()
+            app.state.qdrant_store.create_collection()
+        except Exception:
+            app.state.qdrant_store = None
     app.state.cohere_embedder = CohereEmbedder()
     yield
 

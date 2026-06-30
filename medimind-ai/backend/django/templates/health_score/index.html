@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><p class="page-eyebrow">Wellness</p><h2 class="page-title">Your Health Score</h2><p class="page-subtitle">A practical summary of lifestyle, lab, and risk indicators.</p></div><button class="btn btn-primary" id="recalculate">Recalculate Score</button></div>
+<section class="card">
+  <div class="donut-score" style="--score:{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %};"><div class="donut-score-inner"><div><strong>{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %}/100</strong><span>Good</span></div></div></div>
+  <div class="grid grid-2" style="margin-top:24px;">
+    <div><h3>Strengths</h3><ul><li>Healthy BMI trend</li><li>Normal blood sugar range</li><li>Regular exercise activity</li></ul></div>
+    <div><h3>Needs Improvement</h3><ul><li>Monitor LDL cholesterol</li><li>Review vitamin D levels</li><li>Keep blood pressure tracked</li></ul></div>
+  </div>
+</section>
+<section class="grid grid-4" style="margin-top:24px;">
+  <article class="card stat-card"><p class="stat-label">BMI Score</p><p class="stat-value">95/100</p></article>
+  <article class="card stat-card"><p class="stat-label">Blood Score</p><p class="stat-value">72/100</p></article>
+  <article class="card stat-card"><p class="stat-label">Activity Score</p><p class="stat-value">88/100</p></article>
+  <article class="card stat-card"><p class="stat-label">Nutrition Score</p><p class="stat-value">71/100</p></article>
+</section>
+<section class="card" style="margin-top:24px;"><h3 class="card-title">Score History</h3><div class="chart-wrap"><canvas id="scoreHistory"></canvas></div></section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => makeLineChart(document.getElementById("scoreHistory"), ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"], [72,74,75,77,78,79,80,81,82,83,84,{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %}]));
+document.getElementById("recalculate").addEventListener("click", async () => {
+  showLoading("Recalculating your health score...");
+  try {
+    const data = await API.post("/calculate-health-score", { bmi: 24, glucose: 92, ldl: 110, systolic: 118, smoking: false, exercise_frequency: "daily" }, true);
+    notify.success(`Health score recalculated: ${data.score}/100`);
+  } catch { notify.error("Could not recalculate score right now."); }
+  finally { hideLoading(); }
+});
+</script>
+{% endblock %}
