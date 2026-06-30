@@ -1,0 +1,82 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sign In | MediMind AI</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/components.css' %}">
+</head>
+<body class="auth-body">
+  <section class="auth-brand">
+    <div class="auth-logo">
+      <span class="brand-mark">♥</span>
+      <span>MediMind AI</span>
+    </div>
+    <div class="auth-copy">
+      <h1>Intelligent Healthcare, Powered by AI</h1>
+      <p>Secure risk prediction, medical report analysis, and personal health guidance in one calm workspace.</p>
+      <div class="feature-list">
+        <div class="feature-item"><span class="feature-icon">▣</span>Disease Risk Prediction</div>
+        <div class="feature-item"><span class="feature-icon">▤</span>AI Report Analysis</div>
+        <div class="feature-item"><span class="feature-icon">◍</span>Personalized Health Assistant</div>
+      </div>
+    </div>
+    <strong>Trusted by Healthcare Professionals</strong>
+  </section>
+  <section class="auth-panel">
+    <form class="auth-form" id="loginForm">
+      <h2>Welcome back</h2>
+      <p class="subtitle">Sign in to your MediMind account</p>
+      <div class="form-group">
+        <label for="username">Email or username</label>
+        <input id="username" name="username" type="text" autocomplete="username" required>
+      </div>
+      <div class="form-group" style="margin-top:16px;">
+        <label for="password">Password</label>
+        <div style="position:relative;">
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <button type="button" class="btn btn-secondary" id="togglePassword" style="position:absolute; right:4px; top:4px; min-height:32px;">Show</button>
+        </div>
+      </div>
+      <label style="display:flex; align-items:center; gap:10px; margin:16px 0 22px;">
+        <input type="checkbox" checked>
+        <span>Remember me</span>
+      </label>
+      <button class="btn btn-primary btn-full btn-lg" type="submit">Sign In</button>
+      <div class="auth-divider">or</div>
+      <p style="text-align:center;">New to MediMind? <a style="color:var(--accent); font-weight:700;" href="{% url 'register_page' %}">Create an account</a></p>
+    </form>
+  </section>
+  <div class="loading-overlay" data-loading-overlay>
+    <div class="loading-card"><div class="spinner"></div><strong data-loading-message>Signing you in...</strong></div>
+  </div>
+  <script src="{% static 'js/notifications.js' %}"></script>
+  <script src="{% static 'js/api.js' %}"></script>
+  <script>
+    document.getElementById("togglePassword").addEventListener("click", () => {
+      const input = document.getElementById("password");
+      input.type = input.type === "password" ? "text" : "password";
+      document.getElementById("togglePassword").textContent = input.type === "password" ? "Show" : "Hide";
+    });
+    document.getElementById("loginForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      showLoading("Signing you in...");
+      try {
+        const data = await API.post("/auth/login/", {
+          username: event.target.username.value,
+          password: event.target.password.value
+        });
+        API.setTokens(data.access, data.refresh);
+        notify.success("Welcome back to MediMind AI");
+        window.location.href = "/dashboard/";
+      } catch (error) {
+        notify.error("Sign in failed. Check your credentials and try again.");
+      } finally {
+        hideLoading();
+      }
+    });
+  </script>
+</body>
+</html>

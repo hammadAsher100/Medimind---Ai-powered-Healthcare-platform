@@ -4,13 +4,13 @@ MediMind AI is a production-oriented multi-agent healthcare platform with a Djan
 
 ## Services
 
-- Django API: `http://localhost:8000`
-- FastAPI AI service: `http://localhost:8001`
-- Nginx gateway: `http://localhost`
-- MLflow: `http://localhost:5000`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
-- Qdrant: `http://localhost:6333`
+- Django API: `http://localhost:18000`
+- FastAPI AI service: `http://localhost:18001`
+- Nginx gateway: `http://localhost:18080`
+- MLflow: `http://localhost:15000`
+- Prometheus: `http://localhost:19090`
+- Grafana: `http://localhost:13000`
+- Qdrant: `http://localhost:16333`
 
 ## Setup
 
@@ -32,6 +32,8 @@ docker compose exec django python manage.py createsuperuser
 ```bash
 docker compose exec fastapi python ml_models/diabetes/train.py --data /app/datasets/diabetes.csv
 ```
+
+`requirements.txt` contains the full development environment. Docker runtime images use `requirements-django.txt` and `requirements-fastapi.txt` so builds stay practical. Use `requirements-training.txt` when you want the full local training stack with XGBoost, SHAP, MLflow, notebooks, matplotlib, and seaborn.
 
 ## Required Environment Variables
 

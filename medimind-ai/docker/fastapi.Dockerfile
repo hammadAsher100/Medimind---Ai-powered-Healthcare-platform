@@ -3,10 +3,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 COPY requirements.txt .
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends build-essential libpq-dev \
-    && pip install --no-cache-dir -r requirements.txt \
-    && apt-get purge -y --auto-remove build-essential \
-    && rm -rf /var/lib/apt/lists/*
+COPY requirements-fastapi.txt .
+RUN pip install --no-cache-dir -r requirements-fastapi.txt
 COPY ai_service/ .
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "2"]

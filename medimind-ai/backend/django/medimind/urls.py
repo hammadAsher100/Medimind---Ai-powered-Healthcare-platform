@@ -4,7 +4,26 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
+from . import page_views
+
 urlpatterns = [
+    path("", page_views.dashboard_page, name="dashboard_page"),
+    path("login/", page_views.login_page, name="login_page"),
+    path("register/", page_views.register_page, name="register_page"),
+    path("logout/", page_views.logout_page, name="logout_page"),
+    path("dashboard/", page_views.dashboard_page, name="dashboard_page"),
+    path("predictions/", page_views.predictions_index, name="predictions_page"),
+    path("predictions/result/", page_views.prediction_result, name="prediction_result"),
+    path("predictions/<str:disease>/", page_views.prediction_form, name="prediction_form"),
+    path("reports/", page_views.reports_index, name="reports_page"),
+    path("reports/upload/", page_views.report_upload, name="upload_report_page"),
+    path("reports/compare/", page_views.comparison_page, name="compare_reports_page"),
+    path("reports/<int:pk>/", page_views.report_detail, name="report_detail_page"),
+    path("assistant/", page_views.assistant_chat, name="assistant_page"),
+    path("health-score/", page_views.health_score_page, name="health_score_page"),
+    path("timeline/", page_views.timeline_page, name="timeline_page"),
+    path("profile/", page_views.profile_page, name="profile_page"),
+    path("admin-panel/mlops/", page_views.mlops_page, name="mlops_page"),
     path("admin/", admin.site.urls),
     path("api/auth/", include("authentication.urls")),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),

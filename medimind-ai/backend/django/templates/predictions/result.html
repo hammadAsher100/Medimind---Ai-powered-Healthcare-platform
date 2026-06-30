@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="hero-result" id="resultHero">
+  <p class="page-eyebrow" style="color:rgba(255,255,255,0.75);">Risk Assessment</p>
+  <h2 style="margin:0; font-size:32px;" id="resultTitle">Disease Risk Assessment</h2>
+  <div class="hero-metrics">
+    <div><div class="hero-number" id="riskPercent">--%</div><span>Risk Score</span></div>
+    <div><div class="hero-number" id="riskLevel">--</div><span>Risk Level</span></div>
+  </div>
+  <p style="margin:20px 0 0;">Assessed on: <span id="assessedDate"></span> | Based on current health indicators</p>
+</section>
+
+<section class="grid grid-55-45" style="margin-top:24px;">
+  <article class="card">
+    <h3 class="card-title">What's Driving Your Risk?</h3>
+    <div class="chart-wrap"><canvas id="shapChart"></canvas></div>
+    <div class="disclaimer" style="margin-top:18px; border-color:rgba(30,136,229,0.25); background:var(--accent-glow);">
+      <span>AI Explanation</span>
+      <span id="aiExplanation">The AI explanation will appear after an assessment is completed.</span>
+    </div>
+  </article>
+  <aside class="grid">
+    <article class="card">
+      <h3 class="card-title">Risk Breakdown</h3>
+      <div id="riskBreakdown"></div>
+    </article>
+    <article class="card">
+      <h3 class="card-title">AI Recommendation</h3>
+      <p id="aiRecommendation">Run an assessment to receive a recommendation.</p>
+      <div style="display:grid; gap:10px;"><a class="btn btn-primary" href="{% url 'assistant_page' %}">Get Nutrition Plan</a><a class="btn btn-secondary" href="{% url 'assistant_page' %}">Get Lifestyle Plan</a></div>
+    </article>
+  </aside>
+</section>
+
+<section class="card accordion" style="margin-top:24px;">
+  <h3 class="card-title">What Does This Mean?</h3>
+  <details open><summary>What is this condition?</summary><p>This estimate shows model-predicted risk from the provided indicators. It is not a diagnosis.</p></details>
+  <details><summary>Risk Factors</summary><p>Common factors include abnormal lab values, family history, age, blood pressure, weight, and lifestyle patterns.</p></details>
+  <details><summary>Prevention Strategies</summary><p>Regular follow-up, healthy nutrition, activity, sleep, and medication adherence when prescribed can reduce many risks.</p></details>
+  <details><summary>When to See a Doctor</summary><p>Seek clinical guidance for high-risk results, new symptoms, or abnormal report values.</p></details>
+</section>
+
+<div class="sticky-actions">
+  <a class="btn btn-secondary" id="runAgain" href="{% url 'predictions_page' %}">← Run Again</a>
+  <button class="btn btn-secondary" type="button" onclick="notify.success('Saved to timeline view')">Save to Timeline</button>
+  <a class="btn btn-primary" href="{% url 'assistant_page' %}">Ask AI Assistant</a>
+  <button class="btn btn-secondary" type="button" onclick="window.print()">Download PDF</button>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const result = JSON.parse(sessionStorage.getItem("prediction_result") || "{}");
+  const input = JSON.parse(sessionStorage.getItem("prediction_input") || "{}");
+  const disease = result.disease || "disease";
+  const risk = Number(result.risk_percentage || 0);
+  const level = (result.risk_level || "Unknown").toLowerCase();
+  document.getElementById("resultHero").classList.add(risk < 30 ? "low" : risk <= 60 ? "moderate" : "high");
+  document.getElementById("resultTitle").textContent = `${disease.charAt(0).toUpperCase() + disease.slice(1)} Risk Assessment`;
+  document.getElementById("riskPercent").textContent = `${risk || "--"}%`;
+  document.getElementById("riskLevel").textContent = (result.risk_level || "--").toUpperCase();
+  document.getElementById("assessedDate").textContent = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+  document.getElementById("aiExplanation").textContent = result.shap_explanation?.explanation_text || "The listed factors contributed most to this model estimate.";
+  document.getElementById("aiRecommendation").textContent = result.ai_recommendation || "Discuss this result with a qualified healthcare provider.";
+  document.getElementById("runAgain").href = `/predictions/${disease}/`;
+  const factors = result.shap_explanation?.top_factors || [
+    {feature:"Blood Glucose", contribution:42.1, direction:"increases_risk"},
+    {feature:"BMI", contribution:25.3, direction:"increases_risk"},
+    {feature:"Age", contribution:18, direction:"increases_risk"},
+    {feature:"Blood Pressure", contribution:4.4, direction:"decreases_risk"}
+  ];
+  makeHorizontalBarChart(document.getElementById("shapChart"), factors.map(f => f.feature), factors.map(f => f.contribution), factors.map(f => f.direction));
+  document.getElementById("riskBreakdown").innerHTML = factors.map((f) => `<p><strong>● ${f.feature}:</strong> ${f.direction === "increases_risk" ? "INCREASES RISK" : "DECREASES RISK"}<br><span class="hint">Contribution: ${f.contribution}%</span></p>`).join("");
+});
+</script>
+{% endblock %}

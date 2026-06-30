@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><p class="page-eyebrow">Activity History</p><h2 class="page-title">Timeline</h2><p class="page-subtitle">A chronological view of reports, predictions, score updates, and assistant actions.</p></div></div>
+<div class="filter-bar"><button class="btn btn-primary">All</button><button class="btn btn-secondary">Reports</button><button class="btn btn-secondary">Predictions</button><button class="btn btn-secondary">Scores</button><button class="btn btn-secondary">Assistant</button></div>
+<section class="card">
+  <h3 class="card-title">June 2026</h3>
+  <div class="timeline-list">
+    {% for event in events %}
+      <div class="timeline-item"><span class="timeline-dot {{ event.event_type }}"></span><div class="timeline-content"><h4>{{ event.created_at|date:"M d" }} — {{ event.get_event_type_display }}</h4><p>{{ event.title }}: {{ event.description }}</p><a class="btn btn-secondary" href="#">View Result →</a></div></div>
+    {% empty %}
+      <div class="timeline-item"><span class="timeline-dot"></span><div class="timeline-content"><h4>Jun 29 — Risk Assessment</h4><p>Diabetes risk assessed: 87% HIGH</p><a class="btn btn-secondary" href="{% url 'predictions_page' %}">View Result →</a></div></div>
+      <div class="timeline-item"><span class="timeline-dot report"></span><div class="timeline-content"><h4>Jun 27 — Report Analyzed</h4><p>Blood Test Report analyzed: 3 abnormal values found</p><a class="btn btn-secondary" href="{% url 'reports_page' %}">View Report →</a></div></div>
+      <div class="timeline-item"><span class="timeline-dot score"></span><div class="timeline-content"><h4>Jun 25 — Health Score Updated</h4><p>Score improved from 81 to 84 (+3)</p><a class="btn btn-secondary" href="{% url 'health_score_page' %}">View Score →</a></div></div>
+    {% endfor %}
+  </div>
+</section>
+{% endblock %}

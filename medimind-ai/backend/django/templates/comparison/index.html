@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header"><div><p class="page-eyebrow">Reports</p><h2 class="page-title">Compare Reports</h2><p class="page-subtitle">Compare lab values across two analyzed reports and review the trend narrative.</p></div></div>
+<section class="card">
+  <div class="grid grid-2" style="align-items:end;">
+    <div class="form-group"><label>Previous Report</label><select id="previousReport">{% for report in reports %}<option value="{{ report.id }}">{{ report.file.name }} — {{ report.uploaded_at|date:"M d" }}</option>{% empty %}<option>No reports available</option>{% endfor %}</select></div>
+    <div class="form-group"><label>Current Report</label><select id="currentReport">{% for report in reports %}<option value="{{ report.id }}">{{ report.file.name }} — {{ report.uploaded_at|date:"M d" }}</option>{% empty %}<option>No reports available</option>{% endfor %}</select></div>
+  </div>
+  <div style="text-align:center; margin-top:18px;"><button class="btn btn-primary" id="compareBtn">Compare Reports →</button></div>
+</section>
+<section class="card" style="margin-top:24px;">
+  <h3 class="card-title">Comparison Results</h3>
+  <div class="table-wrap"><table class="data-table"><thead><tr><th>Test</th><th>Previous</th><th>Current</th><th>Change</th><th>Trend</th></tr></thead><tbody id="comparisonRows"><tr><td>Blood Sugar</td><td>132 mg/dL</td><td>118 mg/dL</td><td>-14</td><td><span class="badge badge-success">Improved</span></td></tr><tr><td>Cholesterol</td><td>220 mg/dL</td><td>190 mg/dL</td><td>-30</td><td><span class="badge badge-success">Improved</span></td></tr><tr><td>Vitamin D</td><td>18 ng/mL</td><td>22 ng/mL</td><td>+4</td><td><span class="badge badge-warning">Improving</span></td></tr></tbody></table></div>
+  <p id="comparisonNarrative" style="margin-top:18px;">Your latest values show encouraging improvement in glucose and cholesterol. Continue follow-up with your clinician for persistent low vitamin D.</p>
+</section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.getElementById("compareBtn").addEventListener("click", () => notify.info("Comparison preview is ready. Connect two analyzed report IDs for live AI comparison."));
+</script>
+{% endblock %}
