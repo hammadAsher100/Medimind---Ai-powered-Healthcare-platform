@@ -142,6 +142,7 @@ def profile_page(request):
     context["medical_profile"] = getattr(request.user, "medical_profile", None)
     context["allergies"] = Allergy.objects.filter(user=request.user)
     context["family_history"] = FamilyHistory.objects.filter(user=request.user)
+    context["blood_type_choices"] = MedicalProfile.BLOOD_TYPES
     return render(request, "profile/index.html", context)
 
 
