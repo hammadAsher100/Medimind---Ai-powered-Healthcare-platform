@@ -1,4 +1,5 @@
 import time
+import os
 from typing import Iterable
 
 from .groq_client import GroqClient
@@ -14,6 +15,12 @@ class LLMProvider:
         messages = list(messages)
         system_prompt = "\n".join(message["content"] for message in messages if message.get("role") == "system") or "You are MediMind AI."
         user_message = "\n".join(message["content"] for message in messages if message.get("role") == "user")
+        if os.environ.get("DISABLE_LLM", "False").lower() == "true":
+            return (
+                "This local preview response is educational only. Your information was reviewed against the available "
+                "risk factors, and the safest next step is to discuss persistent symptoms, abnormal readings, or major "
+                "concerns with a qualified healthcare provider."
+            )
         clients = [self.groq, self.openrouter] if model == "groq" else [self.openrouter, self.groq]
         last_error = None
         for client in clients:

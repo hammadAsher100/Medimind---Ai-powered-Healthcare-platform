@@ -10,6 +10,8 @@ def configure_mlflow() -> None:
 
 
 def log_prediction(disease: str, payload: dict, result: dict) -> None:
+    if os.environ.get("DISABLE_MLFLOW", os.environ.get("DISABLE_ML", "False")).lower() == "true":
+        return
     try:
         import mlflow
 
