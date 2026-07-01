@@ -1,21 +1,121 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="page-header"><div><p class="page-eyebrow">Reports</p><h2 class="page-title">Compare Reports</h2><p class="page-subtitle">Compare lab values across two analyzed reports and review the trend narrative.</p></div></div>
+<div class="page-header">
+  <div>
+    <p class="page-eyebrow">Reports</p>
+    <h2 class="page-title">Compare Reports</h2>
+    <p class="page-subtitle">Compare lab values across two analyzed reports and review the trend narrative.</p>
+  </div>
+</div>
 <section class="card">
   <div class="grid grid-2" style="align-items:end;">
-    <div class="form-group"><label>Previous Report</label><select id="previousReport">{% for report in reports %}<option value="{{ report.id }}">{{ report.file.name }} — {{ report.uploaded_at|date:"M d" }}</option>{% empty %}<option>No reports available</option>{% endfor %}</select></div>
-    <div class="form-group"><label>Current Report</label><select id="currentReport">{% for report in reports %}<option value="{{ report.id }}">{{ report.file.name }} — {{ report.uploaded_at|date:"M d" }}</option>{% empty %}<option>No reports available</option>{% endfor %}</select></div>
+    <div class="form-group">
+      <label>Previous Report</label>
+      <select id="previousReport">
+        {% for report in reports %}
+          <option value="{{ report.id }}">{{ report.get_report_type_display }} — {{ report.uploaded_at|date:"M d, Y" }}</option>
+        {% empty %}
+          <option>No reports available</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label>Current Report</label>
+      <select id="currentReport">
+        {% for report in reports %}
+          <option value="{{ report.id }}" {% if forloop.last %}selected{% endif %}>{{ report.get_report_type_display }} — {{ report.uploaded_at|date:"M d, Y" }}</option>
+        {% empty %}
+          <option>No reports available</option>
+        {% endfor %}
+      </select>
+    </div>
   </div>
-  <div style="text-align:center; margin-top:18px;"><button class="btn btn-primary" id="compareBtn">Compare Reports →</button></div>
+  <div style="text-align:center; margin-top:18px;">
+    <button class="btn btn-primary" id="compareBtn" {% if not reports %}disabled{% endif %}>Compare Reports →</button>
+  </div>
 </section>
-<section class="card" style="margin-top:24px;">
+
+<section class="card" style="margin-top:24px;" id="resultsSection">
   <h3 class="card-title">Comparison Results</h3>
-  <div class="table-wrap"><table class="data-table"><thead><tr><th>Test</th><th>Previous</th><th>Current</th><th>Change</th><th>Trend</th></tr></thead><tbody id="comparisonRows"><tr><td>Blood Sugar</td><td>132 mg/dL</td><td>118 mg/dL</td><td>-14</td><td><span class="badge badge-success">Improved</span></td></tr><tr><td>Cholesterol</td><td>220 mg/dL</td><td>190 mg/dL</td><td>-30</td><td><span class="badge badge-success">Improved</span></td></tr><tr><td>Vitamin D</td><td>18 ng/mL</td><td>22 ng/mL</td><td>+4</td><td><span class="badge badge-warning">Improving</span></td></tr></tbody></table></div>
-  <p id="comparisonNarrative" style="margin-top:18px;">Your latest values show encouraging improvement in glucose and cholesterol. Continue follow-up with your clinician for persistent low vitamin D.</p>
+  <div id="comparisonContent">
+    <div class="empty-state">
+      <div>
+        <strong>Select two reports above</strong>
+        <p>Choose a previous and current report, then click "Compare Reports" to see your lab value trends.</p>
+      </div>
+    </div>
+  </div>
 </section>
 {% endblock %}
 {% block extra_js %}
 <script>
-document.getElementById("compareBtn").addEventListener("click", () => notify.info("Comparison preview is ready. Connect two analyzed report IDs for live AI comparison."));
+document.getElementById("compareBtn").addEventListener("click", async () => {
+  const firstId = document.getElementById("previousReport").value;
+  const secondId = document.getElementById("currentReport").value;
+
+  if (!firstId || !secondId) {
+    notify.warning("Please select two reports to compare.");
+    return;
+  }
+  if (firstId === secondId) {
+    notify.warning("Please select two different reports.");
+    return;
+  }
+
+  showLoading("Comparing reports and generating AI analysis...");
+  try {
+    const data = await API.post("/compare-reports", {
+      first_report_id: parseInt(firstId),
+      second_report_id: parseInt(secondId),
+      auth_token: API.token() || ""
+    }, true);
+
+    const rows = data.comparison_table || [];
+    const content = document.getElementById("comparisonContent");
+
+    if (rows.length === 0) {
+      content.innerHTML = `<div class="empty-state"><div><strong>No comparable values found</strong><p>The selected reports don't share common lab values that can be compared.</p></div></div>`;
+      hideLoading();
+      return;
+    }
+
+    let tableHTML = `
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead><tr><th>Test</th><th>Previous</th><th>Current</th><th>Change</th><th>Trend</th></tr></thead>
+          <tbody>`;
+
+    for (const row of rows) {
+      const change = row.absolute_difference > 0 ? `+${row.absolute_difference.toFixed(1)}` : row.absolute_difference.toFixed(1);
+      const trendClass = row.trend === "improved" ? "badge-success" : row.trend === "worsened" ? "badge-danger" : "badge-info";
+      const trendLabel = row.trend.charAt(0).toUpperCase() + row.trend.slice(1);
+      tableHTML += `<tr>
+        <td><strong>${row.name.charAt(0).toUpperCase() + row.name.slice(1)}</strong></td>
+        <td>${row.old}</td>
+        <td>${row.new}</td>
+        <td>${change}</td>
+        <td><span class="badge ${trendClass}">${trendLabel}</span></td>
+      </tr>`;
+    }
+
+    tableHTML += `</tbody></table></div>`;
+
+    if (data.narrative) {
+      tableHTML += `<div class="disclaimer" style="margin-top:18px; border-color:rgba(30,136,229,0.25); background:var(--accent-glow);">
+        <span>🤖</span><div><strong>AI Analysis</strong><p style="margin:6px 0 0;">${data.narrative}</p></div>
+      </div>`;
+    }
+
+    const overallBadge = data.trend === "improved" ? "badge-success" : data.trend === "worsened" ? "badge-danger" : "badge-info";
+    tableHTML += `<p style="margin-top:14px;">Overall trend: <span class="badge ${overallBadge}">${(data.trend || "stable").toUpperCase()}</span></p>`;
+
+    content.innerHTML = tableHTML;
+    notify.success("Comparison complete!");
+  } catch (error) {
+    notify.error("Comparison failed. Please ensure both reports have been analyzed.");
+  } finally {
+    hideLoading();
+  }
+});
 </script>
 {% endblock %}
