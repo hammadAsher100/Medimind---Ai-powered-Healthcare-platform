@@ -1,10 +1,14 @@
 import json
+import os
 from pathlib import Path
-
-import joblib
 
 DISEASES = ("diabetes", "heart", "kidney", "stroke")
 BASE_DIR = Path(__file__).resolve().parent
+
+if os.environ.get("DISABLE_ML", "False").lower() == "true":
+    joblib = None
+else:
+    import joblib
 
 
 def _load_json(path: Path, default):
@@ -15,6 +19,8 @@ def _load_json(path: Path, default):
 
 
 def _load_joblib(path: Path):
+    if joblib is None:
+        return None
     if not path.exists():
         return None
     return joblib.load(path)

@@ -1,13 +1,22 @@
+from __future__ import annotations
+
 import json
+import os
 from typing import Any
 
-import numpy as np
-import pandas as pd
 from fastapi import APIRouter, HTTPException, Request
 
 from llm.provider import LLMProvider
 from mlflow_utils.tracking import log_prediction
-from preprocessing.features import FEATURE_ENGINEERING
+
+if os.environ.get("DISABLE_ML", "False").lower() == "true":
+    np = None
+    pd = None
+    FEATURE_ENGINEERING = {}
+else:
+    import numpy as np
+    import pandas as pd
+    from preprocessing.features import FEATURE_ENGINEERING
 
 router = APIRouter(tags=["prediction"])
 
@@ -50,6 +59,8 @@ def _heuristic_risk(disease: str, payload: dict[str, Any]) -> float:
 
 
 def _prepare_frame(disease: str, payload: dict[str, Any], feature_columns: list[str]) -> pd.DataFrame:
+    if pd is None:
+        raise RuntimeError("ML dependencies are disabled.")
     missing = [field for field in DISEASE_FIELDS[disease] if field not in payload]
     if missing:
         raise HTTPException(status_code=422, detail={"missing_fields": missing})
@@ -106,22 +117,51 @@ def _shap_factors(bundle: dict, frame: pd.DataFrame, risk_percentage: float) -> 
     return factors
 
 
+def _preview_factors(disease: str, payload: dict[str, Any], risk_percentage: float) -> list[dict]:
+    factors = []
+    for field in DISEASE_FIELDS[disease]:
+        value = payload.get(field)
+        try:
+            numeric = abs(float(value))
+        except (TypeError, ValueError):
+            numeric = 1.0 if str(value).strip() else 0.0
+        factors.append((field, numeric))
+    factors = sorted(factors, key=lambda item: item[1], reverse=True)[:6]
+    total = sum(value for _, value in factors) or 1.0
+    return [
+        {
+            "feature": field.replace("_", " ").title(),
+            "contribution": round((value / total) * risk_percentage, 3),
+            "direction": "increases_risk",
+        }
+        for field, value in factors
+    ]
+
+
 @router.post("/predict/{disease}")
 async def predict(disease: str, payload: dict, request: Request):
     try:
         disease = disease.lower()
         if disease not in DISEASE_FIELDS:
             raise HTTPException(status_code=404, detail="Unsupported disease model.")
+        missing = [field for field in DISEASE_FIELDS[disease] if field not in payload]
+        if missing:
+            raise HTTPException(status_code=422, detail={"missing_fields": missing})
+
         bundle = request.app.state.models.get(disease, {})
-        feature_columns = bundle.get("feature_columns") or []
-        frame = _prepare_frame(disease, payload, feature_columns)
-        try:
-            prediction, risk_percentage = _predict_with_model(bundle, frame)
-        except RuntimeError:
+        if os.environ.get("DISABLE_ML", "False").lower() == "true":
             risk_percentage = _heuristic_risk(disease, payload)
             prediction = int(risk_percentage >= 50)
-
-        top_factors = _shap_factors(bundle, frame, risk_percentage)
+            top_factors = _preview_factors(disease, payload, risk_percentage)
+        else:
+            feature_columns = bundle.get("feature_columns") or []
+            frame = _prepare_frame(disease, payload, feature_columns)
+            try:
+                prediction, risk_percentage = _predict_with_model(bundle, frame)
+            except RuntimeError:
+                risk_percentage = _heuristic_risk(disease, payload)
+                prediction = int(risk_percentage >= 50)
+            top_factors = _shap_factors(bundle, frame, risk_percentage)
         provider = LLMProvider()
         prompt_payload = json.dumps({"disease": disease, "risk_percentage": risk_percentage, "top_factors": top_factors}, indent=2)
         try:
