@@ -74,3 +74,7 @@ class ProfileView(generics.RetrieveUpdateAPIView):
 
     def get_object(self):
         return self.request.user
+
+    def post(self, request, *args, **kwargs):
+        """Accept POST as partial update for browser convenience."""
+        return self.partial_update(request, *args, **kwargs)
