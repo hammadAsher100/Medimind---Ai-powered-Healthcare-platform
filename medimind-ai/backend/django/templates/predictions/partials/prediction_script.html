@@ -14,7 +14,7 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     showLoading("Analyzing your risk factors...");
     try {
-      const result = await API.post(`/predict/${disease}`, data, true);
+      const result = await API.post(`/predictions/predict/${disease}/`, data);
       sessionStorage.setItem("prediction_result", JSON.stringify(result));
       sessionStorage.setItem("prediction_input", JSON.stringify(data));
       window.location.href = "/predictions/result/";

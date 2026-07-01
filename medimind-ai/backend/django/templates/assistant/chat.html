@@ -1,25 +1,203 @@
 {% extends "base.html" %}
+{% block extra_head %}
+<style>
+  .chat-container {
+    min-height: calc(100vh - 136px);
+    display: grid;
+    grid-template-rows: auto auto auto 1fr auto;
+    gap: 0;
+  }
+  .chat-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 18px;
+    margin-bottom: 16px;
+  }
+  .quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 16px;
+  }
+  .quick-actions .btn {
+    font-size: 13px;
+    padding: 0 12px;
+    min-height: 36px;
+    border-radius: 999px;
+    transition: all .2s ease;
+  }
+  .quick-actions .btn:hover {
+    background: var(--accent);
+    color: var(--white);
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+  #emergencyBanner {
+    display: none;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .messages-area {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 8px 0 16px;
+    min-height: 200px;
+  }
+  .msg-row {
+    max-width: 780px;
+    animation: msgIn .25s ease;
+  }
+  .msg-row.user-msg {
+    align-self: flex-end;
+  }
+  .msg-row.ai-msg {
+    align-self: flex-start;
+  }
+  .user-bubble {
+    background: linear-gradient(135deg, var(--accent), var(--accent-light));
+    color: var(--white);
+    padding: 14px 18px;
+    border-radius: 20px 20px 4px 20px;
+    font-weight: 500;
+    box-shadow: 0 2px 8px rgba(30, 136, 229, 0.2);
+  }
+  .ai-bubble-wrap {
+    display: flex;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .ai-bubble-wrap .avatar {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+    background: linear-gradient(135deg, var(--accent), var(--primary-mid));
+    box-shadow: 0 2px 8px rgba(30, 136, 229, 0.25);
+  }
+  .ai-bubble {
+    background: var(--surface-card);
+    border: 1px solid var(--border);
+    border-radius: 4px 20px 20px 20px;
+    padding: 16px 18px;
+    line-height: 1.65;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+  }
+  .ai-bubble p { margin: 0 0 10px; }
+  .ai-bubble p:last-child { margin-bottom: 0; }
+  .ai-bubble ul, .ai-bubble ol { margin: 6px 0; padding-left: 20px; }
+  .ai-bubble li { margin: 4px 0; }
+  .ai-bubble strong { color: var(--text-dark); }
+  .ai-bubble h3, .ai-bubble h4 {
+    margin: 14px 0 6px;
+    color: var(--text-dark);
+    font-size: 15px;
+  }
+  .ai-bubble h3:first-child, .ai-bubble h4:first-child { margin-top: 0; }
+  .ai-bubble code {
+    background: var(--surface);
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+  .agents-tag {
+    margin-top: 10px;
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .agents-tag .agent-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 10px;
+    border-radius: 999px;
+    background: var(--accent-glow);
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: capitalize;
+  }
+  .typing-indicator {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    padding: 4px 0;
+  }
+  .typing-indicator span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: typingBounce 1.2s ease infinite;
+  }
+  .typing-indicator span:nth-child(2) { animation-delay: .15s; }
+  .typing-indicator span:nth-child(3) { animation-delay: .3s; }
+  @keyframes typingBounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-6px); opacity: 1; }
+  }
+  @keyframes msgIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .chat-input-bar {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+    align-items: center;
+  }
+  .chat-input-bar input {
+    min-height: 48px;
+    padding: 0 18px;
+    border-radius: 999px;
+    font-size: 15px;
+  }
+  .chat-input-bar .btn {
+    min-height: 48px;
+    border-radius: 999px;
+    padding: 0 24px;
+  }
+</style>
+{% endblock %}
 {% block content %}
-<section class="card" style="min-height:calc(100vh - 136px); display:grid; grid-template-rows:auto auto 1fr auto; gap:18px;">
-  <header style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:18px;">
-    <div><h2 class="page-title" style="font-size:24px;">MediMind AI Assistant</h2><p class="page-subtitle">Your personal medical AI, powered by LLaMA 3.3-70B.</p></div>
-    <button class="btn btn-secondary" id="clearChat">Clear</button>
+<section class="card chat-container">
+  <header class="chat-header">
+    <div>
+      <h2 class="page-title" style="font-size:24px;">MediMind AI Assistant</h2>
+      <p class="page-subtitle">Your personal medical AI, powered by LLaMA 3.3-70B.</p>
+    </div>
+    <button class="btn btn-secondary" id="clearChat">Clear Chat</button>
   </header>
-  <div class="filter-bar">
-    <button class="btn btn-secondary quick" data-text="I have symptoms and want educational guidance.">Analyze Symptoms</button>
-    <button class="btn btn-secondary quick" data-text="Explain my latest report in plain language.">Explain My Report</button>
-    <button class="btn btn-secondary quick" data-text="Create a nutrition plan based on my health profile.">Nutrition Plan</button>
-    <button class="btn btn-secondary quick" data-text="Suggest an exercise plan for my health goals.">Exercise Plan</button>
-    <button class="btn btn-secondary quick" data-text="Explain medication side effects without dosage advice.">Medication Info</button>
-    <button class="btn btn-secondary quick" data-text="Help me choose a risk assessment.">Risk Assessment</button>
+  <div class="quick-actions">
+    <button class="btn btn-secondary quick" data-text="I have symptoms and want educational guidance.">💊 Analyze Symptoms</button>
+    <button class="btn btn-secondary quick" data-text="Explain my latest report in plain language.">📋 Explain Report</button>
+    <button class="btn btn-secondary quick" data-text="Create a nutrition plan based on my health profile.">🥗 Nutrition Plan</button>
+    <button class="btn btn-secondary quick" data-text="Suggest an exercise plan for my health goals.">🏃 Exercise Plan</button>
+    <button class="btn btn-secondary quick" data-text="Explain medication side effects without dosage advice.">💉 Medication Info</button>
+    <button class="btn btn-secondary quick" data-text="Help me choose a risk assessment.">📊 Risk Assessment</button>
   </div>
-  <div id="emergencyBanner" class="disclaimer" style="display:none; border-color:rgba(239,68,68,0.3); background:var(--danger-soft); color:var(--danger);">🚨 EMERGENCY DETECTED — If this is a medical emergency, call emergency services immediately.</div>
-  <div id="messages" style="overflow:auto; display:grid; align-content:start; gap:14px;">
-    <div style="max-width:720px; display:flex; gap:10px;"><span class="avatar">♥</span><div class="card" style="box-shadow:none; border-radius:18px 18px 18px 4px;"><strong>Hello, I am your MediMind AI health assistant.</strong><p>I can help with symptom education, report explanation, nutrition planning, and lifestyle guidance.</p><p class="hint">For educational purposes only. Always consult a doctor for medical decisions.</p></div></div>
+  <div id="emergencyBanner" class="disclaimer" style="border-color:rgba(239,68,68,0.3); background:var(--danger-soft); color:var(--danger);">
+    🚨 <strong>EMERGENCY DETECTED</strong> — If this is a medical emergency, call emergency services (911) immediately.
   </div>
-  <form id="chatForm" style="display:grid; grid-template-columns:42px 1fr auto; gap:10px; border-top:1px solid var(--border); padding-top:18px;">
-    <button class="btn btn-secondary" type="button">⌁</button>
-    <input id="chatInput" placeholder="Type your health question..." required>
+  <div id="messages" class="messages-area">
+    <div class="msg-row ai-msg">
+      <div class="ai-bubble-wrap">
+        <span class="avatar">♥</span>
+        <div class="ai-bubble">
+          <strong>Hello, I'm your MediMind AI health assistant.</strong>
+          <p>I can help with symptom education, report explanation, nutrition planning, and lifestyle guidance.</p>
+          <p class="hint">For educational purposes only. Always consult a doctor for medical decisions.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  <form id="chatForm" class="chat-input-bar">
+    <input id="chatInput" placeholder="Type your health question..." required autocomplete="off">
     <button class="btn btn-primary" type="submit">Send →</button>
   </form>
 </section>
@@ -27,35 +205,103 @@
 {% block extra_js %}
 <script>
 const messages = document.getElementById("messages");
-function bubble(role, text, agents="") {
-  const wrap = document.createElement("div");
-  wrap.style.maxWidth = "760px";
-  wrap.style.justifySelf = role === "user" ? "end" : "start";
-  wrap.innerHTML = role === "user"
-    ? `<div style="background:var(--accent); color:var(--white); padding:14px 16px; border-radius:18px 18px 4px 18px;">${text}</div>`
-    : `<div style="display:flex; gap:10px;"><span class="avatar">♥</span><div class="card" style="box-shadow:none; border-radius:18px 18px 18px 4px;">${text}${agents ? `<p class="hint">Agents: ${agents}</p>` : ""}</div></div>`;
-  messages.appendChild(wrap);
+const MARKDOWN_RULES = [
+  [/\*\*(.+?)\*\*/g, '<strong>$1</strong>'],
+  [/\*(.+?)\*/g, '<em>$1</em>'],
+  [/^### (.+)$/gm, '<h4>$1</h4>'],
+  [/^## (.+)$/gm, '<h3>$1</h3>'],
+  [/^- (.+)$/gm, '<li>$1</li>'],
+  [/^(\d+)\. (.+)$/gm, '<li>$2</li>'],
+  [/`(.+?)`/g, '<code>$1</code>'],
+];
+
+function renderMarkdown(text) {
+  if (!text) return '';
+  let html = text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  for (const [pattern, replacement] of MARKDOWN_RULES) {
+    html = html.replace(pattern, replacement);
+  }
+  // Wrap consecutive <li> items in <ul>
+  html = html.replace(/(<li>.*?<\/li>\n?)+/gs, match => `<ul>${match}</ul>`);
+  // Convert remaining newlines to paragraphs
+  html = html.split(/\n{2,}/).map(p => p.trim()).filter(Boolean).map(p => {
+    if (p.startsWith('<h') || p.startsWith('<ul') || p.startsWith('<ol')) return p;
+    return `<p>${p.replace(/\n/g, '<br>')}</p>`;
+  }).join('');
+  return html;
+}
+
+function addMessage(role, text, agents=[]) {
+  const row = document.createElement("div");
+  row.className = `msg-row ${role === "user" ? "user-msg" : "ai-msg"}`;
+  if (role === "user") {
+    row.innerHTML = `<div class="user-bubble">${text.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</div>`;
+  } else {
+    const agentBadges = agents.length ? `<div class="agents-tag">${agents.map(a => `<span class="agent-badge">${a}</span>`).join('')}</div>` : '';
+    row.innerHTML = `<div class="ai-bubble-wrap"><span class="avatar">♥</span><div class="ai-bubble">${renderMarkdown(text)}${agentBadges}</div></div>`;
+  }
+  messages.appendChild(row);
+  messages.scrollTop = messages.scrollHeight;
+  return row;
+}
+
+function addTypingIndicator() {
+  const row = document.createElement("div");
+  row.className = "msg-row ai-msg";
+  row.id = "typingRow";
+  row.innerHTML = `<div class="ai-bubble-wrap"><span class="avatar">♥</span><div class="ai-bubble"><div class="typing-indicator"><span></span><span></span><span></span></div><span style="margin-left:8px;color:var(--text-muted);font-size:13px;">MediMind is thinking...</span></div></div>`;
+  messages.appendChild(row);
   messages.scrollTop = messages.scrollHeight;
 }
-document.querySelectorAll(".quick").forEach(btn => btn.addEventListener("click", () => document.getElementById("chatInput").value = btn.dataset.text));
-document.getElementById("clearChat").addEventListener("click", () => messages.innerHTML = "");
+
+function removeTypingIndicator() {
+  const el = document.getElementById("typingRow");
+  if (el) el.remove();
+}
+
+// Quick action buttons
+document.querySelectorAll(".quick").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const input = document.getElementById("chatInput");
+    input.value = btn.dataset.text;
+    input.focus();
+  });
+});
+
+// Clear chat
+document.getElementById("clearChat").addEventListener("click", () => {
+  messages.innerHTML = '';
+  addMessage("ai", "Chat cleared. How can I help you today?");
+});
+
+// Chat form submission
 document.getElementById("chatForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const input = document.getElementById("chatInput");
   const text = input.value.trim();
   if (!text) return;
-  bubble("user", text);
+
+  addMessage("user", text);
   input.value = "";
-  const emergency = ["chest pain","difficulty breathing","loss of consciousness","severe bleeding","stroke symptoms"].some(k => text.toLowerCase().includes(k));
+  input.disabled = true;
+
+  const emergency = ["chest pain","difficulty breathing","loss of consciousness","severe bleeding","stroke symptoms","face drooping","arm weakness","slurred speech"].some(k => text.toLowerCase().includes(k));
   document.getElementById("emergencyBanner").style.display = emergency ? "flex" : "none";
-  bubble("ai", "<span class='typing'>MediMind is thinking...</span>");
+
+  addTypingIndicator();
+
   try {
     const data = await API.post("/agents/chat", { user_id: {{ request.user.id }}, user_message: text }, true);
-    messages.lastElementChild.remove();
-    bubble("ai", data.merged_response || "I could not generate a response.", (data.responses || []).map(r => r.agent_name).join(" • "));
+    removeTypingIndicator();
+    const agentNames = (data.responses || []).map(r => r.agent_name).filter(Boolean);
+    addMessage("ai", data.merged_response || "I could not generate a response. Please try again.", agentNames);
   } catch (error) {
-    messages.lastElementChild.remove();
+    removeTypingIndicator();
+    addMessage("ai", "I'm having trouble connecting right now. Please check that the AI service is running and try again.");
     notify.error("Assistant connection failed. Please try again.");
+  } finally {
+    input.disabled = false;
+    input.focus();
   }
 });
 </script>

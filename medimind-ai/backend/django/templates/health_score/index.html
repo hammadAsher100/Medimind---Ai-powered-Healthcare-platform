@@ -1,31 +1,202 @@
 {% extends "base.html" %}
+{% block extra_head %}
+<style>
+  .score-hero {
+    display: flex;
+    align-items: center;
+    gap: 42px;
+    flex-wrap: wrap;
+  }
+  .donut-wrapper {
+    position: relative;
+    width: 180px;
+    height: 180px;
+  }
+  .donut-wrapper svg {
+    width: 100%;
+    height: 100%;
+    transform: rotate(-90deg);
+  }
+  .donut-track {
+    fill: none;
+    stroke: var(--border);
+    stroke-width: 12;
+  }
+  .donut-fill {
+    fill: none;
+    stroke-width: 12;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1.2s ease, stroke .3s ease;
+  }
+  .donut-label {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .donut-label strong {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--text-dark);
+    line-height: 1;
+  }
+  .donut-label span {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+  .score-details { flex: 1; min-width: 260px; }
+  .score-details h3 { margin: 0 0 12px; color: var(--text-dark); }
+  .score-details ul { margin: 0; padding-left: 20px; }
+  .score-details li { margin: 6px 0; color: var(--text-body); }
+  .strength-item::marker { color: var(--success); }
+  .improve-item::marker { color: var(--warning); }
+
+  .score-form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-top: 18px;
+  }
+</style>
+{% endblock %}
 {% block content %}
-<div class="page-header"><div><p class="page-eyebrow">Wellness</p><h2 class="page-title">Your Health Score</h2><p class="page-subtitle">A practical summary of lifestyle, lab, and risk indicators.</p></div><button class="btn btn-primary" id="recalculate">Recalculate Score</button></div>
+<div class="page-header">
+  <div>
+    <p class="page-eyebrow">Wellness</p>
+    <h2 class="page-title">Your Health Score</h2>
+    <p class="page-subtitle">A practical summary of lifestyle, lab, and risk indicators.</p>
+  </div>
+</div>
+
 <section class="card">
-  <div class="donut-score" style="--score:{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %};"><div class="donut-score-inner"><div><strong>{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %}/100</strong><span>Good</span></div></div></div>
-  <div class="grid grid-2" style="margin-top:24px;">
-    <div><h3>Strengths</h3><ul><li>Healthy BMI trend</li><li>Normal blood sugar range</li><li>Regular exercise activity</li></ul></div>
-    <div><h3>Needs Improvement</h3><ul><li>Monitor LDL cholesterol</li><li>Review vitamin D levels</li><li>Keep blood pressure tracked</li></ul></div>
+  <div class="score-hero">
+    <div class="donut-wrapper">
+      <svg viewBox="0 0 200 200">
+        <circle class="donut-track" cx="100" cy="100" r="85"></circle>
+        <circle class="donut-fill" id="donutFill" cx="100" cy="100" r="85"
+                stroke-dasharray="534" stroke-dashoffset="534"></circle>
+      </svg>
+      <div class="donut-label">
+        <strong id="scoreValue">{% if latest_score %}{{ latest_score.score }}{% else %}--{% endif %}</strong>
+        <span id="scoreCategory">{% if latest_score %}{% if latest_score.score >= 85 %}Excellent{% elif latest_score.score >= 70 %}Good{% elif latest_score.score >= 50 %}Fair{% else %}Needs Attention{% endif %}{% else %}Not Calculated{% endif %}</span>
+      </div>
+    </div>
+    <div class="score-details">
+      <div class="grid grid-2">
+        <div>
+          <h3>✅ Strengths</h3>
+          <ul id="strengthsList">
+            {% if latest_score and latest_score.strengths %}
+              {% for s in latest_score.strengths %}<li class="strength-item">{{ s }}</li>{% endfor %}
+            {% else %}
+              <li class="strength-item">Run a health score to see your strengths</li>
+            {% endif %}
+          </ul>
+        </div>
+        <div>
+          <h3>⚠️ Needs Improvement</h3>
+          <ul id="improvementsList">
+            {% if latest_score and latest_score.improvements %}
+              {% for i in latest_score.improvements %}<li class="improve-item">{{ i }}</li>{% endfor %}
+            {% else %}
+              <li class="improve-item">Run a health score to see areas for improvement</li>
+            {% endif %}
+          </ul>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
-<section class="grid grid-4" style="margin-top:24px;">
-  <article class="card stat-card"><p class="stat-label">BMI Score</p><p class="stat-value">95/100</p></article>
-  <article class="card stat-card"><p class="stat-label">Blood Score</p><p class="stat-value">72/100</p></article>
-  <article class="card stat-card"><p class="stat-label">Activity Score</p><p class="stat-value">88/100</p></article>
-  <article class="card stat-card"><p class="stat-label">Nutrition Score</p><p class="stat-value">71/100</p></article>
+
+<section class="card" style="margin-top:24px;">
+  <h3 class="card-title">Calculate New Health Score</h3>
+  <p class="page-subtitle" style="margin-top:0;">Enter your current health metrics to calculate an updated score.</p>
+  <form id="healthScoreForm">
+    <div class="score-form-grid">
+      <div class="form-group"><label>BMI</label><input name="bmi" type="number" step="0.1" min="10" max="60" placeholder="e.g. 24.5"><span class="hint">Body Mass Index</span></div>
+      <div class="form-group"><label>Glucose <span class="unit">(mg/dL)</span></label><input name="glucose" type="number" min="50" max="500" placeholder="e.g. 92"><span class="hint">Fasting blood glucose</span></div>
+      <div class="form-group"><label>LDL Cholesterol <span class="unit">(mg/dL)</span></label><input name="ldl" type="number" min="30" max="400" placeholder="e.g. 110"></div>
+      <div class="form-group"><label>Systolic BP <span class="unit">(mmHg)</span></label><input name="systolic" type="number" min="70" max="250" placeholder="e.g. 118"></div>
+      <div class="form-group"><label>Diastolic BP <span class="unit">(mmHg)</span></label><input name="diastolic" type="number" min="40" max="150" placeholder="e.g. 76"></div>
+      <div class="form-group">
+        <label>Smoking Status</label>
+        <select name="smoking"><option value="">Select...</option><option value="false">Non-smoker</option><option value="true">Smoker</option></select>
+      </div>
+      <div class="form-group">
+        <label>Exercise Frequency</label>
+        <select name="exercise_frequency"><option value="">Select...</option><option value="none">None</option><option value="weekly">Weekly</option><option value="several_weekly">Several times weekly</option><option value="daily">Daily</option></select>
+      </div>
+    </div>
+    <div style="margin-top:18px; display:flex; gap:12px;">
+      <button class="btn btn-primary" type="submit">Calculate Score →</button>
+    </div>
+  </form>
 </section>
-<section class="card" style="margin-top:24px;"><h3 class="card-title">Score History</h3><div class="chart-wrap"><canvas id="scoreHistory"></canvas></div></section>
+
+<section class="grid grid-4" style="margin-top:24px;">
+  <article class="card stat-card"><p class="stat-label">BMI</p><p class="stat-value">{% if latest_score and latest_score.bmi %}{{ latest_score.bmi }}{% else %}--{% endif %}</p></article>
+  <article class="card stat-card"><p class="stat-label">Blood Sugar</p><p class="stat-value">{% if latest_score and latest_score.sugar_level %}{{ latest_score.sugar_level }}{% else %}--{% endif %}</p><p class="stat-note">mg/dL</p></article>
+  <article class="card stat-card"><p class="stat-label">Cholesterol</p><p class="stat-value">{% if latest_score and latest_score.cholesterol %}{{ latest_score.cholesterol }}{% else %}--{% endif %}</p><p class="stat-note">mg/dL</p></article>
+  <article class="card stat-card"><p class="stat-label">Blood Pressure</p><p class="stat-value">{% if latest_score and latest_score.blood_pressure_systolic %}{{ latest_score.blood_pressure_systolic }}/{{ latest_score.blood_pressure_diastolic }}{% else %}--/--{% endif %}</p><p class="stat-note">mmHg</p></article>
+</section>
+
+<section class="card" style="margin-top:24px;">
+  <h3 class="card-title">Score History</h3>
+  <div class="chart-wrap"><canvas id="scoreHistory"></canvas></div>
+</section>
 {% endblock %}
 {% block extra_js %}
 <script>
-document.addEventListener("DOMContentLoaded", () => makeLineChart(document.getElementById("scoreHistory"), ["Jul","Aug","Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun"], [72,74,75,77,78,79,80,81,82,83,84,{% if latest_score %}{{ latest_score.score }}{% else %}84{% endif %}]));
-document.getElementById("recalculate").addEventListener("click", async () => {
-  showLoading("Recalculating your health score...");
+document.addEventListener("DOMContentLoaded", () => {
+  // Animate the donut chart
+  const score = {% if latest_score %}{{ latest_score.score }}{% else %}0{% endif %};
+  const fill = document.getElementById("donutFill");
+  const circumference = 2 * Math.PI * 85;
+  const offset = circumference - (score / 100) * circumference;
+  const color = score >= 85 ? "var(--success)" : score >= 70 ? "var(--accent)" : score >= 50 ? "var(--warning)" : "var(--danger)";
+  fill.style.stroke = color;
+  setTimeout(() => { fill.style.strokeDashoffset = offset; }, 100);
+
+  // History chart
+  const historyScores = [{% for s in history %}{{ s.score }},{% endfor %}];
+  const historyLabels = [{% for s in history %}"{{ s.created_at|date:'M d' }}",{% endfor %}];
+  if (historyScores.length > 0) {
+    makeLineChart(document.getElementById("scoreHistory"), historyLabels, historyScores);
+  } else {
+    makeLineChart(document.getElementById("scoreHistory"), ["Now"], [score || 0]);
+  }
+});
+
+// Health score form submission - routes through Django API which saves the result
+document.getElementById("healthScoreForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const form = event.target;
+  const data = {};
+  new FormData(form).forEach((value, key) => {
+    if (value === "") return;
+    if (key === "smoking") data[key] = value === "true";
+    else if (key === "exercise_frequency") data[key] = value;
+    else data[key] = Number(value);
+  });
+
+  if (Object.keys(data).length === 0) {
+    notify.warning("Please fill in at least one health metric.");
+    return;
+  }
+
+  showLoading("Calculating your health score...");
   try {
-    const data = await API.post("/calculate-health-score", { bmi: 24, glucose: 92, ldl: 110, systolic: 118, smoking: false, exercise_frequency: "daily" }, true);
-    notify.success(`Health score recalculated: ${data.score}/100`);
-  } catch { notify.error("Could not recalculate score right now."); }
-  finally { hideLoading(); }
+    const result = await API.post("/health-score/", data);
+    notify.success(`Health score calculated: ${result.score}/100`);
+    setTimeout(() => window.location.reload(), 1200);
+  } catch (error) {
+    notify.error("Could not calculate health score right now. Please try again.");
+  } finally {
+    hideLoading();
+  }
 });
 </script>
 {% endblock %}

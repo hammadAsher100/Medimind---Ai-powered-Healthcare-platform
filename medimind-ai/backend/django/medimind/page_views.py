@@ -8,7 +8,7 @@ from health_score.models import HealthScore
 from recommendations.models import Prediction, Recommendation
 from reports.models import MedicalReport
 from timeline.models import TimelineEvent
-from users.models import Allergy, FamilyHistory
+from users.models import Allergy, FamilyHistory, MedicalProfile
 
 
 def _common_context(request, title):
@@ -44,6 +44,7 @@ def dashboard_page(request):
     predictions = Prediction.objects.filter(user=request.user).order_by("-created_at")
     timeline = TimelineEvent.objects.filter(user=request.user).order_by("-created_at")[:5]
     recommendations = Recommendation.objects.filter(user=request.user).order_by("-created_at")[:3]
+    score_history = list(HealthScore.objects.filter(user=request.user).order_by("created_at")[:12])
     context = _common_context(request, "Dashboard")
     context.update({
         "latest_score": latest_score,
@@ -53,6 +54,7 @@ def dashboard_page(request):
         "predictions_count": predictions.count(),
         "timeline_events": timeline,
         "recommendations": recommendations,
+        "score_history": score_history,
     })
     return render(request, "dashboard/index.html", context)
 
