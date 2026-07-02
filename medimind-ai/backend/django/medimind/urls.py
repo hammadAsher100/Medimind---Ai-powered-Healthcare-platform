@@ -4,7 +4,7 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import page_views
+from . import ai_proxy, page_views
 
 urlpatterns = [
     path("", page_views.dashboard_page, name="dashboard_page"),
@@ -33,6 +33,9 @@ urlpatterns = [
     path("api/timeline/", include("timeline.urls")),
     path("api/dashboard/", include("dashboard.urls")),
     path("api/", include("recommendations.urls")),
+    # Proxy AI service requests (used in local dev; nginx handles this in Docker)
+    path("ai/<path:path>", ai_proxy.ai_proxy, name="ai_proxy"),
+    path("ai/", ai_proxy.ai_proxy, name="ai_proxy_root"),
 ]
 
 if settings.DEBUG:

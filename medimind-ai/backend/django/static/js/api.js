@@ -1,6 +1,6 @@
 const API = {
   baseURL: "/api",
-  aiURL: window.MEDIMIND_AI_URL || (window.location.port === "18000" ? "http://localhost:18001" : "/ai"),
+  aiURL: window.MEDIMIND_AI_URL || (window.location.port === "8000" ? "http://localhost:8001" : "/ai"),
   token() { return localStorage.getItem("access_token"); },
   refreshToken() { return localStorage.getItem("refresh_token"); },
   headers(json = true) {
