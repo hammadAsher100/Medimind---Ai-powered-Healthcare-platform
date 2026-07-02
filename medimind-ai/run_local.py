@@ -16,12 +16,25 @@ FASTAPI_URL = "http://127.0.0.1:8001/health"
 
 
 def local_env() -> dict[str, str]:
+    # Load .env so API keys (GROQ_API_KEY, OPENROUTER_API_KEY, etc.) are available
+    env_file = ROOT / ".env"
+    if env_file.exists():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip().strip('"').strip("'")
+            if key and key not in os.environ:
+                os.environ[key] = value
+
     env = os.environ.copy()
     env.setdefault("DJANGO_SETTINGS_MODULE", "medimind.settings.development")
     env.setdefault("USE_POSTGRES", "False")
     env.setdefault("FASTAPI_URL", "http://127.0.0.1:8001")
     env.setdefault("DISABLE_QDRANT", "true")
-    env.setdefault("DISABLE_LLM", "true")
+    env.setdefault("DISABLE_LLM", "false")
     env.setdefault("DISABLE_ML", "true")
     env.setdefault("PYTHONUNBUFFERED", "1")
     return env
