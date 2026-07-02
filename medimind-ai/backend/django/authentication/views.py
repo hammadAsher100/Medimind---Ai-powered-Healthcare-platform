@@ -20,6 +20,7 @@ def _login_browser_session(request, user):
 
 class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
     serializer_class = RegisterSerializer
 
     def create(self, request, *args, **kwargs):
@@ -40,6 +41,7 @@ class RegisterView(generics.CreateAPIView):
 
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
+    authentication_classes = []
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)
