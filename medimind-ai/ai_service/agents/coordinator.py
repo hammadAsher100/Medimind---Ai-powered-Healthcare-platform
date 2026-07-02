@@ -86,10 +86,12 @@ async def route_message(
         memory = []
 
     # Retrieve RAG context safely
+    rag_context = []
     try:
-        rag_context = await asyncio.to_thread(Retriever().retrieve, user_message, 5)
+        retriever = Retriever()
+        rag_context = await asyncio.to_thread(retriever.retrieve, user_message, 5)
     except Exception:
-        rag_context = []
+        pass
 
     context = AgentContext(
         user_id=user_id,

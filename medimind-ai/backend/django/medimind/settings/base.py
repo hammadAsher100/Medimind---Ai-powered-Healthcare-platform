@@ -63,8 +63,8 @@ DATABASES = {
         "NAME": os.environ.get("POSTGRES_DB", "medimind"),
         "USER": os.environ.get("POSTGRES_USER", "medimind"),
         "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "medimind_password"),
-        "HOST": os.environ.get("POSTGRES_HOST", "postgres"),
-        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
+        "HOST": os.environ.get("POSTGRES_HOST", os.environ.get("DB_HOST", "postgres")),
+        "PORT": os.environ.get("POSTGRES_PORT", os.environ.get("DB_PORT", "5432")),
     }
 }
 
@@ -82,7 +82,8 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+_STATIC_DIR = BASE_DIR / "static"
+STATICFILES_DIRS = [_STATIC_DIR] if _STATIC_DIR.is_dir() else []
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

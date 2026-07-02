@@ -291,14 +291,39 @@ document.getElementById("chatForm").addEventListener("submit", async (event) => 
   addTypingIndicator();
 
   try {
-    const data = await API.post("/agents/chat", { user_id: {{ request.user.id }}, user_message: text }, true);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 120000);
+    const aiBase = API.aiURL;
+    const csrfToken = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || "";
+    const response = await fetch(`${aiBase}/agents/chat`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(csrfToken ? {"X-CSRFToken": csrfToken} : {}),
+        ...(API.token() ? {"Authorization": `Bearer ${API.token()}`} : {}),
+      },
+      body: JSON.stringify({ user_id: {{ request.user.id }}, user_message: text }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const data = await response.json();
     removeTypingIndicator();
-    const agentNames = (data.responses || []).map(r => r.agent_name).filter(Boolean);
-    addMessage("ai", data.merged_response || "I could not generate a response. Please try again.", agentNames);
+    if (!response.ok) {
+      addMessage("ai", data.detail || "The AI service returned an error. Please try again.");
+      notify.error(data.detail || "AI service error.");
+    } else {
+      const agentNames = (data.responses || []).map(r => r.agent_name).filter(Boolean);
+      addMessage("ai", data.merged_response || "I could not generate a response. Please try again.", agentNames);
+    }
   } catch (error) {
     removeTypingIndicator();
-    addMessage("ai", "I'm having trouble connecting right now. Please check that the AI service is running and try again.");
-    notify.error("Assistant connection failed. Please try again.");
+    if (error.name === "AbortError") {
+      addMessage("ai", "The request timed out. The AI service may be under heavy load — please try again in a moment.");
+      notify.error("Request timed out.");
+    } else {
+      addMessage("ai", "I'm having trouble connecting right now. Please check that the AI service is running and try again.");
+      notify.error("Assistant connection failed. Please try again.");
+    }
   } finally {
     input.disabled = false;
     input.focus();

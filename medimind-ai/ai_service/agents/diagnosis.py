@@ -1,3 +1,5 @@
+import asyncio
+
 from llm.provider import LLMProvider
 
 from .base import AgentContext, AgentResponse, BaseAgent
@@ -14,10 +16,12 @@ Medical knowledge: {context.rag_context}
 Provide: possible conditions to discuss with doctor, related risk factors, when to seek immediate care.
 Always end with: "Please consult a qualified healthcare provider for diagnosis."
 """
-        response = LLMProvider().chat(
+        response = await asyncio.to_thread(
+            LLMProvider().chat,
             [
                 {"role": "system", "content": "You are a diagnostic support AI. You do NOT diagnose. Educational information only."},
                 {"role": "user", "content": prompt},
             ]
         )
         return AgentResponse("diagnosis", response)
+

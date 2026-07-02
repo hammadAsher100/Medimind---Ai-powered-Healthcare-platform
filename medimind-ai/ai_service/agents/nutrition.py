@@ -1,3 +1,5 @@
+import asyncio
+
 from llm.provider import LLMProvider
 
 from .base import AgentContext, AgentResponse, BaseAgent
@@ -5,7 +7,8 @@ from .base import AgentContext, AgentResponse, BaseAgent
 
 class NutritionAgent(BaseAgent):
     async def run(self, context: AgentContext) -> AgentResponse:
-        response = LLMProvider().chat(
+        response = await asyncio.to_thread(
+            LLMProvider().chat,
             [
                 {"role": "system", "content": "Create practical nutrition guidance tailored to allergies, medical profile, and risk predictions. Do not diagnose."},
                 {
@@ -15,3 +18,4 @@ class NutritionAgent(BaseAgent):
             ]
         )
         return AgentResponse("nutrition", response)
+
