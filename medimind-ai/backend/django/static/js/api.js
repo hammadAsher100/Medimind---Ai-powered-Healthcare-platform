@@ -7,11 +7,54 @@ const API = {
     const headers = {};
     if (json) headers["Content-Type"] = "application/json";
     if (this.token()) headers.Authorization = `Bearer ${this.token()}`;
+    const csrfMatch = document.cookie.match(/csrftoken=([^;]+)/);
+    if (csrfMatch) headers["X-CSRFToken"] = csrfMatch[1];
     return headers;
+  },
+  async _tryRefreshToken() {
+    const refresh = this.refreshToken();
+    if (!refresh) return false;
+    try {
+      const res = await fetch("/api/auth/token/refresh/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+        credentials: "same-origin",
+      });
+      if (!res.ok) return false;
+      const data = await res.json();
+      if (data.access) {
+        localStorage.setItem("access_token", data.access);
+        if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
+        return true;
+      }
+    } catch { /* ignore */ }
+    return false;
   },
   async request(endpoint, options = {}, useAI = false) {
     const base = useAI ? this.aiURL : this.baseURL;
+    // Always send cookies so SessionAuthentication works as fallback
+    if (!useAI) options.credentials = "same-origin";
     const response = await fetch(`${base}${endpoint}`, options);
+
+    // If 401 and we have a refresh token, try refreshing and retry once
+    if (response.status === 401 && !options._retried && !useAI) {
+      const refreshed = await this._tryRefreshToken();
+      if (refreshed) {
+        // Rebuild headers with the new token
+        const newHeaders = {};
+        if (options.headers) {
+          for (const [k, v] of Object.entries(options.headers)) {
+            newHeaders[k] = v;
+          }
+        }
+        newHeaders.Authorization = `Bearer ${this.token()}`;
+        options.headers = newHeaders;
+        options._retried = true;
+        return this.request(endpoint, options, useAI);
+      }
+    }
+
     const text = await response.text();
     let payload = {};
     if (text) {

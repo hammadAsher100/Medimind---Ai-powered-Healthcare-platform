@@ -34,6 +34,7 @@ def local_env() -> dict[str, str]:
     env.setdefault("USE_POSTGRES", "False")
     # Force-set URLs that conflict with Docker-only values in .env
     env["FASTAPI_URL"] = "http://127.0.0.1:8001"
+    env["DJANGO_URL"] = "http://127.0.0.1:8000"
     env.setdefault("DISABLE_QDRANT", "true")
     env.setdefault("DISABLE_LLM", "false")
     env.setdefault("DISABLE_ML", "true")
