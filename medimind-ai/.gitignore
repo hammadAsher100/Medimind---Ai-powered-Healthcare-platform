@@ -7,6 +7,9 @@ env/
 *.egg-info/
 
 *.sqlite3
+*.db
+*.pem
+aws_setup/
 media/
 staticfiles/
 
