@@ -91,6 +91,7 @@ def train_disease(disease: str) -> dict:
     os.environ.setdefault("MLFLOW_TRACKING_URI", "")
     os.environ.setdefault("DISABLE_MLFLOW", "true")
 
+    # pyrefly: ignore [missing-import]
     from ml_models.train_common import run_training
 
     data_path = DATASET_DIR / f"{disease}.csv"
