@@ -48,6 +48,7 @@ def dashboard_page(request):
     context = _common_context(request, "Dashboard")
     context.update({
         "latest_score": latest_score,
+        "score_history": HealthScore.objects.filter(user=request.user).order_by("-created_at")[:12],
         "reports": reports[:5],
         "reports_count": reports.count(),
         "predictions": predictions[:8],

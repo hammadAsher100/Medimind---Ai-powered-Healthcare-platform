@@ -44,34 +44,100 @@
   </article>
 </section>
 
-<section class="grid grid-60-40" style="margin-top:24px;">
-  <article class="card">
-    <h3 class="card-title">Health Score History</h3>
+<section class="metric-strip" style="margin-top:24px;">
+  <article class="metric-tile">
+    <span>BMI</span>
+    <strong>{% if latest_score and latest_score.bmi %}{{ latest_score.bmi }}{% else %}--{% endif %}</strong>
+    <small>{% if latest_score and latest_score.bmi >= 18.5 and latest_score.bmi <= 24.9 %}Healthy range{% else %}Needs context{% endif %}</small>
+  </article>
+  <article class="metric-tile">
+    <span>Glucose</span>
+    <strong>{% if latest_score and latest_score.sugar_level %}{{ latest_score.sugar_level }}{% else %}--{% endif %}</strong>
+    <small>mg/dL fasting marker</small>
+  </article>
+  <article class="metric-tile">
+    <span>Cholesterol</span>
+    <strong>{% if latest_score and latest_score.cholesterol %}{{ latest_score.cholesterol }}{% else %}--{% endif %}</strong>
+    <small>mg/dL lipid marker</small>
+  </article>
+  <article class="metric-tile">
+    <span>Blood Pressure</span>
+    <strong>{% if latest_score and latest_score.blood_pressure_systolic %}{{ latest_score.blood_pressure_systolic }}/{{ latest_score.blood_pressure_diastolic }}{% else %}--/--{% endif %}</strong>
+    <small>mmHg current reading</small>
+  </article>
+</section>
+
+<section class="analytics-grid" style="margin-top:24px;">
+  <article class="card chart-panel">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Health Score Trend</h3>
+        <p class="chart-kicker">Longitudinal view of your latest score history.</p>
+      </div>
+      <span class="badge badge-info">Chart</span>
+    </div>
     <div class="chart-wrap"><canvas id="healthTrend"></canvas></div>
   </article>
-  <article class="card">
-    <h3 class="card-title">Latest Risk Levels</h3>
-    {% for pred in predictions %}
-      {% if forloop.counter <= 4 %}
-      <a class="risk-bar" href="{% url 'prediction_form' pred.disease %}">
-        <strong>{{ pred.disease|title }}</strong>
-        <span class="bar-track">
-          <span class="bar-fill {% if pred.risk_percentage >= 70 %}high{% elif pred.risk_percentage >= 40 %}moderate{% else %}low{% endif %}" style="width:{{ pred.risk_percentage|floatformat:0 }}%"></span>
-        </span>
-        <span>{{ pred.risk_percentage|floatformat:0 }}%</span>
-        <span class="badge {% if pred.risk_percentage >= 70 %}badge-danger{% elif pred.risk_percentage >= 40 %}badge-warning{% else %}badge-success{% endif %}">{{ pred.risk_level }}</span>
-      </a>
-      {% endif %}
-    {% empty %}
-      <div class="empty-state" style="min-height:120px;">
-        <div>
-          <strong>No assessments yet</strong>
-          <p>Run your first risk assessment to see results here.</p>
-          <a class="btn btn-primary" href="{% url 'predictions_page' %}">Start Assessment</a>
-        </div>
+  <article class="card chart-panel">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Risk Mix</h3>
+        <p class="chart-kicker">Latest assessment distribution by risk level.</p>
       </div>
-    {% endfor %}
+    </div>
+    <div class="chart-wrap small"><canvas id="riskMix"></canvas></div>
   </article>
+</section>
+
+<section class="grid grid-2" style="margin-top:24px;">
+  <article class="card chart-panel compact">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Vitals Radar</h3>
+        <p class="chart-kicker">Normalized view of score, BMI, glucose, cholesterol, and BP.</p>
+      </div>
+    </div>
+    <div class="chart-wrap small"><canvas id="vitalsRadar"></canvas></div>
+  </article>
+  <article class="card chart-panel compact">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Clinical Marker Bars</h3>
+        <p class="chart-kicker">Current readings compared on a compact chart.</p>
+      </div>
+    </div>
+    <div class="chart-wrap small"><canvas id="labBars"></canvas></div>
+  </article>
+</section>
+
+<section class="card" style="margin-top:24px;">
+  <div class="chart-panel-header">
+    <div>
+      <h3 class="card-title">Latest Risk Levels</h3>
+      <p class="chart-kicker">Quick scan of your most recent prediction results.</p>
+    </div>
+    <a class="btn btn-secondary" href="{% url 'predictions_page' %}">Open Assessments</a>
+  </div>
+  {% for pred in predictions %}
+    {% if forloop.counter <= 4 %}
+    <a class="risk-bar" href="{% url 'prediction_form' pred.disease %}">
+      <strong>{{ pred.disease|title }}</strong>
+      <span class="bar-track">
+        <span class="bar-fill {% if pred.risk_percentage >= 70 %}high{% elif pred.risk_percentage >= 40 %}moderate{% else %}low{% endif %}" style="width:{{ pred.risk_percentage|floatformat:0 }}%"></span>
+      </span>
+      <span>{{ pred.risk_percentage|floatformat:0 }}%</span>
+      <span class="badge {% if pred.risk_percentage >= 70 %}badge-danger{% elif pred.risk_percentage >= 40 %}badge-warning{% else %}badge-success{% endif %}">{{ pred.risk_level }}</span>
+    </a>
+    {% endif %}
+  {% empty %}
+    <div class="empty-state" style="min-height:120px;">
+      <div>
+        <strong>No assessments yet</strong>
+        <p>Run your first risk assessment to see results here.</p>
+        <a class="btn btn-primary" href="{% url 'predictions_page' %}">Start Assessment</a>
+      </div>
+    </div>
+  {% endfor %}
 </section>
 
 <section class="grid grid-2" style="margin-top:24px;">
@@ -168,11 +234,32 @@ document.addEventListener("DOMContentLoaded", () => {
   const scores = [{% for s in score_history %}{{ s.score }},{% endfor %}];
   const labels = [{% for s in score_history %}"{{ s.created_at|date:'M' }}",{% endfor %}];
   if (scores.length > 1) {
-    makeLineChart(document.getElementById("healthTrend"), labels, scores);
+    makeLineChart(document.getElementById("healthTrend"), labels.reverse(), scores.reverse());
   } else {
-    const score = {% if latest_score %}{{ latest_score.score }}{% else %}0{% endif %};
-    makeLineChart(document.getElementById("healthTrend"), ["Now"], [score]);
+    const score = "{{ latest_score.score|default:'0' }}";
+    makeLineChart(document.getElementById("healthTrend"), ["Now"], [parseFloat(score)]);
   }
+
+  const riskValues = [{% for pred in predictions %}{% if forloop.counter <= 4 %}{{ pred.risk_percentage|floatformat:0 }},{% endif %}{% endfor %}];
+  const low = riskValues.filter(v => v < 40).length;
+  const moderate = riskValues.filter(v => v >= 40 && v < 70).length;
+  const high = riskValues.filter(v => v >= 70).length;
+  makeDoughnutChart(document.getElementById("riskMix"), ["Low", "Moderate", "High", "No Data"], [low, moderate, high, riskValues.length ? 0 : 1], ["#10B981", "#F59E0B", "#EF4444", "#CBD5E1"]);
+
+  const score = "{{ latest_score.score|default:'0' }}";
+  const bmi = "{{ latest_score.bmi|default:'0' }}";
+  const glucose = "{{ latest_score.sugar_level|default:'0' }}";
+  const cholesterol = "{{ latest_score.cholesterol|default:'0' }}";
+  const systolic = "{{ latest_score.blood_pressure_systolic|default:'0' }}";
+  const radarValues = [
+    parseFloat(score),
+    Math.max(0, 100 - Math.abs(parseFloat(bmi) - 22) * 6),
+    Math.max(0, 100 - Math.max(0, parseFloat(glucose) - 90) * 1.2),
+    Math.max(0, 100 - Math.max(0, parseFloat(cholesterol) - 170) * .8),
+    Math.max(0, 100 - Math.max(0, parseFloat(systolic) - 115) * 1.4)
+  ];
+  makeRadarChart(document.getElementById("vitalsRadar"), ["Score", "BMI", "Glucose", "Lipids", "BP"], radarValues);
+  makeBarChart(document.getElementById("labBars"), ["BMI", "Glucose", "Chol.", "Systolic"], [bmi, glucose, cholesterol, systolic], ["#3B82F6", "#10B981", "#F59E0B", "#8B5CF6"]);
 });
 </script>
 {% endblock %}
