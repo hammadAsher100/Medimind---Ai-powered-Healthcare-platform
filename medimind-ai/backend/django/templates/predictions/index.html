@@ -115,10 +115,10 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("riskComparison"),
     ["Diabetes", "Heart", "Kidney", "Stroke"],
     [
-      {% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}{% else %}0{% endif %},
-      {% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}{% else %}0{% endif %},
-      {% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}{% else %}0{% endif %},
-      {% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}{% else %}0{% endif %}
+      parseFloat("{{ latest_predictions.diabetes.risk_percentage|default:'0' }}") || 0,
+      parseFloat("{{ latest_predictions.heart.risk_percentage|default:'0' }}") || 0,
+      parseFloat("{{ latest_predictions.kidney.risk_percentage|default:'0' }}") || 0,
+      parseFloat("{{ latest_predictions.stroke.risk_percentage|default:'0' }}") || 0
     ],
     ["#3B82F6", "#EF4444", "#10B981", "#8B5CF6"]
   );

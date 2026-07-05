@@ -178,7 +178,8 @@
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   // Animate the donut chart
-  const score = {% if latest_score %}{{ latest_score.score }}{% else %}0{% endif %};
+  const _scoreStr = "{{ latest_score.score|default:'0' }}";
+  const score = parseFloat(_scoreStr) || 0;
   const fill = document.getElementById("donutFill");
   const circumference = 2 * Math.PI * 85;
   const offset = circumference - (score / 100) * circumference;
@@ -195,10 +196,10 @@ document.addEventListener("DOMContentLoaded", () => {
     makeLineChart(document.getElementById("scoreHistory"), ["Now"], [score || 0]);
   }
 
-  const bmi = {% if latest_score and latest_score.bmi %}{{ latest_score.bmi }}{% else %}0{% endif %};
-  const glucose = {% if latest_score and latest_score.sugar_level %}{{ latest_score.sugar_level }}{% else %}0{% endif %};
-  const cholesterol = {% if latest_score and latest_score.cholesterol %}{{ latest_score.cholesterol }}{% else %}0{% endif %};
-  const systolic = {% if latest_score and latest_score.blood_pressure_systolic %}{{ latest_score.blood_pressure_systolic }}{% else %}0{% endif %};
+  const bmi = parseFloat("{{ latest_score.bmi|default:'0' }}") || 0;
+  const glucose = parseFloat("{{ latest_score.sugar_level|default:'0' }}") || 0;
+  const cholesterol = parseFloat("{{ latest_score.cholesterol|default:'0' }}") || 0;
+  const systolic = parseFloat("{{ latest_score.blood_pressure_systolic|default:'0' }}") || 0;
   makeRadarChart(document.getElementById("wellnessRadar"), ["Score", "BMI", "Glucose", "Lipids", "BP"], [
     score,
     Math.max(0, 100 - Math.abs(bmi - 22) * 6),
