@@ -4,6 +4,26 @@
   <div><p class="page-eyebrow">Reports</p><h2 class="page-title">Medical Reports</h2><p class="page-subtitle">Review uploaded reports, AI findings, and analysis status.</p></div>
   <a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload New Report</a>
 </div>
+<section class="grid grid-2" style="margin-bottom:24px;">
+  <article class="card chart-panel compact">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Report Type Mix</h3>
+        <p class="chart-kicker">Distribution of uploaded report categories.</p>
+      </div>
+    </div>
+    <div class="chart-wrap small"><canvas id="reportTypeMix"></canvas></div>
+  </article>
+  <article class="card chart-panel compact">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Analysis Status</h3>
+        <p class="chart-kicker">Current review readiness across all reports.</p>
+      </div>
+    </div>
+    <div class="chart-wrap small"><canvas id="reportStatus"></canvas></div>
+  </article>
+</section>
 <section class="card">
   <div class="filter-bar">
     <select><option>All Types</option><option>Blood</option><option>Lab</option><option>Imaging</option></select>
@@ -34,4 +54,20 @@
     <div class="empty-state"><div><strong>No reports yet</strong><p>Upload your first medical report to get started.</p><a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload Report →</a></div></div>
   {% endif %}
 </section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const typeCounts = { blood: 0, lab: 0, imaging: 0, other: 0 };
+  let analyzed = 0;
+  let pending = 0;
+  {% for report in reports %}
+    typeCounts["{{ report.report_type|default:'other' }}"] = (typeCounts["{{ report.report_type|default:'other' }}"] || 0) + 1;
+    {% if report.analysis_result and report.analysis_result != "{}" %}analyzed += 1;{% else %}pending += 1;{% endif %}
+  {% endfor %}
+  const total = analyzed + pending;
+  makeDoughnutChart(document.getElementById("reportTypeMix"), ["Blood", "Lab", "Imaging", "Other"], [typeCounts.blood, typeCounts.lab, typeCounts.imaging, typeCounts.other], ["#EF4444", "#3B82F6", "#8B5CF6", "#64748B"]);
+  makeBarChart(document.getElementById("reportStatus"), ["Analyzed", "Pending"], total ? [analyzed, pending] : [0, 1], ["#10B981", "#F59E0B"]);
+});
+</script>
 {% endblock %}

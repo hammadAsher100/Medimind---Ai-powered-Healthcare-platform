@@ -33,3 +33,168 @@
   line-height: 1;
   font-weight: 800;
 }
+
+.analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(280px, .65fr);
+  gap: 24px;
+}
+
+.chart-panel {
+  min-height: 360px;
+}
+
+.chart-panel.compact {
+  min-height: 300px;
+}
+
+.chart-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.chart-panel-header h3 {
+  margin: 0;
+}
+
+.chart-kicker {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.metric-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.metric-tile {
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: linear-gradient(180deg, #FFFFFF, #F8FAFC);
+}
+
+.metric-tile span {
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.metric-tile strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-dark);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.metric-tile small {
+  display: block;
+  margin-top: 8px;
+  color: var(--text-muted);
+}
+
+.clinical-map {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.clinical-marker {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-card);
+}
+
+.clinical-marker i {
+  width: 12px;
+  height: 44px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+.clinical-marker.good i { background: var(--success); }
+.clinical-marker.warn i { background: var(--warning); }
+.clinical-marker.risk i { background: var(--danger); }
+
+.clinical-marker strong {
+  display: block;
+  color: var(--text-dark);
+}
+
+.clinical-marker span {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.model-card-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(220px, 1fr));
+  gap: 18px;
+}
+
+.model-card {
+  position: relative;
+  overflow: hidden;
+}
+
+.model-card::after {
+  content: "";
+  position: absolute;
+  inset: auto -40px -50px auto;
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  background: var(--accent-glow);
+}
+
+.mini-ring {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: conic-gradient(var(--accent) calc(var(--risk, 0) * 1%), var(--border) 0);
+}
+
+.mini-ring span {
+  width: 52px;
+  height: 52px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--text-dark);
+  font-weight: 800;
+  font-size: 13px;
+}
+
+@media (max-width: 1100px) {
+  .analytics-grid,
+  .metric-strip,
+  .clinical-map,
+  .model-card-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .analytics-grid,
+  .metric-strip,
+  .clinical-map,
+  .model-card-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -7,10 +7,24 @@
     <p class="page-subtitle">Run educational AI risk assessments using your current health indicators.</p>
   </div>
 </div>
-<section class="grid grid-2">
+<section class="card chart-panel compact" style="margin-bottom:24px;">
+  <div class="chart-panel-header">
+    <div>
+      <h3 class="card-title">Risk Model Comparison</h3>
+      <p class="chart-kicker">Compare latest disease-risk percentages across available models.</p>
+    </div>
+    <span class="badge badge-info">Live Chart</span>
+  </div>
+  <div class="chart-wrap small"><canvas id="riskComparison"></canvas></div>
+</section>
+
+<section class="model-card-grid">
   {% with disease="diabetes" icon="▣" title="Diabetes Risk" %}
-  <article class="card stat-card">
-    <span class="stat-icon">{{ icon }}</span>
+  <article class="card model-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      <span class="stat-icon" style="position:static;">{{ icon }}</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    </div>
     <h3>{{ title }}</h3>
     {% if latest_predictions.diabetes %}
       <p>Last checked: {{ latest_predictions.diabetes.created_at|timesince }} ago</p>
@@ -28,8 +42,11 @@
   {% endwith %}
 
   {% with disease="heart" icon="♥" title="Heart Disease Risk" %}
-  <article class="card stat-card">
-    <span class="stat-icon">{{ icon }}</span>
+  <article class="card model-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      <span class="stat-icon" style="position:static;">{{ icon }}</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    </div>
     <h3>{{ title }}</h3>
     {% if latest_predictions.heart %}
       <p>Last checked: {{ latest_predictions.heart.created_at|timesince }} ago</p>
@@ -47,8 +64,11 @@
   {% endwith %}
 
   {% with disease="kidney" icon="◌" title="Kidney Disease Risk" %}
-  <article class="card stat-card">
-    <span class="stat-icon">{{ icon }}</span>
+  <article class="card model-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      <span class="stat-icon" style="position:static;">{{ icon }}</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    </div>
     <h3>{{ title }}</h3>
     {% if latest_predictions.kidney %}
       <p>Last checked: {{ latest_predictions.kidney.created_at|timesince }} ago</p>
@@ -66,8 +86,11 @@
   {% endwith %}
 
   {% with disease="stroke" icon="◎" title="Stroke Risk" %}
-  <article class="card stat-card">
-    <span class="stat-icon">{{ icon }}</span>
+  <article class="card model-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      <span class="stat-icon" style="position:static;">{{ icon }}</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    </div>
     <h3>{{ title }}</h3>
     {% if latest_predictions.stroke %}
       <p>Last checked: {{ latest_predictions.stroke.created_at|timesince }} ago</p>
@@ -84,4 +107,21 @@
   </article>
   {% endwith %}
 </section>
+{% endblock %}
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  makeBarChart(
+    document.getElementById("riskComparison"),
+    ["Diabetes", "Heart", "Kidney", "Stroke"],
+    [
+      {% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}{% else %}0{% endif %},
+      {% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}{% else %}0{% endif %},
+      {% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}{% else %}0{% endif %},
+      {% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}{% else %}0{% endif %}
+    ],
+    ["#3B82F6", "#EF4444", "#10B981", "#8B5CF6"]
+  );
+});
+</script>
 {% endblock %}
