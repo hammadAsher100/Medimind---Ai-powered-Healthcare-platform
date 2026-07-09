@@ -48,6 +48,7 @@ services:
     build:
       context: .
       dockerfile: docker/django.Dockerfile
+    image: hammadasher/medimind-django:latest
     env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-medimind.settings.development}
@@ -76,6 +77,7 @@ services:
     build:
       context: .
       dockerfile: docker/fastapi.Dockerfile
+    image: hammadasher/medimind-fastapi:latest
     env_file: .env
     ports:
       - "18001:8001"
@@ -123,6 +125,7 @@ services:
     build:
       context: .
       dockerfile: docker/nginx.Dockerfile
+    image: hammadasher/medimind-nginx:latest
     ports:
       - "18080:80"
     volumes:
