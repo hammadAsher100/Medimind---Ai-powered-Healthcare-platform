@@ -40,6 +40,7 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = "medimind.urls"
+LOGIN_URL = "/login/"
 
 TEMPLATES = [
     {
