@@ -13,6 +13,7 @@ urlpatterns = [
     path("logout/", page_views.logout_page, name="logout_page"),
     path("dashboard/", page_views.dashboard_page, name="dashboard_page"),
     path("predictions/", page_views.predictions_index, name="predictions_page"),
+    path("predictions/images/", page_views.image_diagnosis_page, name="image_diagnosis_page"),
     path("predictions/result/", page_views.prediction_result, name="prediction_result"),
     path("predictions/<str:disease>/", page_views.prediction_form, name="prediction_form"),
     path("reports/", page_views.reports_index, name="reports_page"),

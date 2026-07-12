@@ -1,14 +1,14 @@
 const chartPalette = {
-  accent: "#1E88E5",
-  accentLight: "#42A5F5",
-  success: "#10B981",
+  accent: "#3B82F6",
+  accentLight: "#60A5FA",
+  success: "#22C55E",
   warning: "#F59E0B",
   danger: "#EF4444",
-  info: "#8B5CF6",
-  border: "#E2E8F0",
-  text: "#334155",
-  muted: "#64748B",
-  surface: "#F8FAFC"
+  info: "#2563EB",
+  border: "#334155",
+  text: "#F8FAFC",
+  muted: "#94A3B8",
+  surface: "#111827"
 };
 
 function prepareCanvas(canvas) {
@@ -288,8 +288,8 @@ function makeLineChart(canvas, labels, values) {
   if (!window.Chart) return drawLineFallback(canvas, labels, values);
   const ctx = canvas.getContext("2d");
   const gradient = ctx.createLinearGradient(0, 0, 0, 260);
-  gradient.addColorStop(0, "rgba(30,136,229,0.28)");
-  gradient.addColorStop(1, "rgba(30,136,229,0)");
+  gradient.addColorStop(0, "rgba(59,130,246,0.22)");
+  gradient.addColorStop(1, "rgba(59,130,246,0)");
   return new Chart(canvas, {
     type: "line",
     data: {
@@ -301,16 +301,28 @@ function makeLineChart(canvas, labels, values) {
         fill: true,
         tension: 0.38,
         pointRadius: 4,
-        pointBackgroundColor: chartPalette.accent
+        pointBackgroundColor: chartPalette.accent,
+        pointBorderColor: "#0F172A",
+        pointHoverRadius: 6
       }]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: "#111827",
+          borderColor: "#334155",
+          borderWidth: 1,
+          titleColor: "#F8FAFC",
+          bodyColor: "#CBD5E1",
+          cornerRadius: 10
+        }
+      },
       scales: {
-        y: { min: 0, max: 100, grid: { color: chartPalette.border } },
-        x: { grid: { display: false } }
+        y: { min: 0, max: 100, ticks: { color: chartPalette.muted }, grid: { color: "rgba(51,65,85,.62)" } },
+        x: { ticks: { color: chartPalette.muted }, grid: { display: false } }
       }
     }
   });
@@ -329,8 +341,8 @@ function makeHorizontalBarChart(canvas, labels, values, directions) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { beginAtZero: true, grid: { color: chartPalette.border } },
-        y: { grid: { display: false } }
+        x: { beginAtZero: true, ticks: { color: chartPalette.muted }, grid: { color: "rgba(51,65,85,.62)" } },
+        y: { ticks: { color: chartPalette.muted }, grid: { display: false } }
       }
     }
   });
@@ -355,8 +367,8 @@ function makeBarChart(canvas, labels, values, colors) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: true, grid: { color: chartPalette.border } },
-        x: { grid: { display: false } }
+        y: { beginAtZero: true, ticks: { color: chartPalette.muted }, grid: { color: "rgba(51,65,85,.62)" } },
+        x: { ticks: { color: chartPalette.muted }, grid: { display: false } }
       }
     }
   });
@@ -384,7 +396,7 @@ function makeDoughnutChart(canvas, labels, values, colors) {
       plugins: {
         legend: {
           position: "bottom",
-          labels: { boxWidth: 10, usePointStyle: true }
+          labels: { boxWidth: 10, usePointStyle: true, color: chartPalette.muted }
         }
       }
     }
@@ -401,7 +413,7 @@ function makeRadarChart(canvas, labels, values) {
       datasets: [{
         data: values,
         borderColor: chartPalette.accent,
-        backgroundColor: "rgba(30,136,229,0.16)",
+        backgroundColor: "rgba(59,130,246,0.16)",
         pointBackgroundColor: chartPalette.accent,
         pointBorderColor: "#FFFFFF",
         pointRadius: 4,
@@ -417,8 +429,8 @@ function makeRadarChart(canvas, labels, values) {
           min: 0,
           max: 100,
           ticks: { display: false, stepSize: 20 },
-          grid: { color: chartPalette.border },
-          angleLines: { color: chartPalette.border },
+          grid: { color: "rgba(51,65,85,.7)" },
+          angleLines: { color: "rgba(51,65,85,.7)" },
           pointLabels: { color: chartPalette.text, font: { size: 12, weight: "600" } }
         }
       }

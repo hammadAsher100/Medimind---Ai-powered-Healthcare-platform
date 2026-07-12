@@ -91,6 +91,13 @@ def prediction_result(request):
 
 
 @login_required
+def image_diagnosis_page(request):
+    context = _common_context(request, "Image Diagnosis")
+    context["model_id"] = "pneumonia_xray"
+    return render(request, "predictions/image_diagnosis.html", context)
+
+
+@login_required
 def reports_index(request):
     context = _common_context(request, "Medical Reports")
     context["reports"] = MedicalReport.objects.filter(user=request.user).order_by("-uploaded_at")
