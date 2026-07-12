@@ -9,7 +9,8 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from model_registry import load_all_models
 from rag.embeddings.cohere_embedder import CohereEmbedder
 from rag.vector_store.qdrant_store import QdrantStore
-from routers import agents, comparison, health_score, knowledge_base, prediction, report_analyzer
+from cnn.registry import CNNModelRegistry
+from routers import agents, cnn_inference, comparison, health_score, knowledge_base, prediction, report_analyzer
 
 load_dotenv()
 
@@ -17,6 +18,11 @@ load_dotenv()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.models = load_all_models()
+    app.state.cnn_registry = CNNModelRegistry()
+    if os.environ.get("DISABLE_CNN", "False").lower() == "true":
+        pass
+    else:
+        app.state.cnn_registry.load_all()
     if os.environ.get("DISABLE_QDRANT", "False").lower() == "true":
         app.state.qdrant_store = None
     else:
@@ -44,10 +50,15 @@ app.include_router(knowledge_base.router)
 app.include_router(health_score.router)
 app.include_router(comparison.router)
 app.include_router(agents.router)
+app.include_router(cnn_inference.router)
 
 Instrumentator().instrument(app).expose(app)
 
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "medimind-ai"}
+    return {
+        "status": "ok",
+        "service": "medimind-ai",
+        "cnn_models": getattr(app.state, "cnn_registry", CNNModelRegistry()).status(),
+    }

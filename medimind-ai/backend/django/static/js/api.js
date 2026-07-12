@@ -82,6 +82,13 @@ const API = {
       body: formData
     }, false);
   },
+  uploadAI(endpoint, formData) {
+    return this.request(endpoint, {
+      method: "POST",
+      headers: this.headers(false),
+      body: formData
+    }, true);
+  },
   setTokens(access, refresh) {
     localStorage.setItem("access_token", access);
     localStorage.setItem("refresh_token", refresh);

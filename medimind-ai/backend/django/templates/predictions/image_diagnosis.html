@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-eyebrow">Image Diagnosis</p>
+    <h2 class="page-title">Chest X-ray pneumonia screening</h2>
+    <p class="page-subtitle">Upload a chest X-ray image to run the pretrained CNN model. Results are educational decision support and should be reviewed by a qualified clinician.</p>
+  </div>
+  <a class="btn btn-secondary" href="{% url 'predictions_page' %}">Back to Risk Models</a>
+</div>
+
+<section class="grid-2 image-diagnosis-grid">
+  <article class="card image-upload-card">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">Upload Chest X-ray</h3>
+        <p class="chart-kicker">Supported formats: JPEG, PNG, WEBP. Max size: 20 MB.</p>
+      </div>
+      <span class="badge badge-info" data-cnn-status>Checking model</span>
+    </div>
+
+    <form id="cnnUploadForm" class="image-diagnosis-form">
+      <label class="image-drop-zone" for="cnnImageInput">
+        <input id="cnnImageInput" name="file" type="file" accept="image/jpeg,image/png,image/webp" required>
+        <span class="image-drop-icon">XR</span>
+        <strong>Choose or drop an X-ray image</strong>
+        <small data-file-name>No image selected</small>
+      </label>
+      <div class="image-preview-wrap" hidden>
+        <img id="imagePreview" alt="Selected chest X-ray preview">
+      </div>
+      <button class="btn btn-primary" type="submit">Run Pneumonia Detection</button>
+      <p class="stat-note">The model uses the copied MobileNetV2 CNN pipeline: RGB conversion, 224 x 224 resize, and 1/255 normalization.</p>
+    </form>
+  </article>
+
+  <article class="card image-result-card" id="cnnResultCard">
+    <div class="chart-panel-header">
+      <div>
+        <h3 class="card-title">AI Assessment</h3>
+        <p class="chart-kicker">Clinical decision support summary appears after analysis.</p>
+      </div>
+    </div>
+    <div class="empty-state" data-empty-result>
+      <strong>No image analyzed yet.</strong>
+      <p>Upload a chest X-ray to see the CNN output.</p>
+    </div>
+    <div class="cnn-result clinical-result" data-cnn-result hidden>
+      <div class="assessment-topline">
+        <span class="assessment-icon" data-result-icon>AI</span>
+        <div>
+          <p class="assessment-label">Preliminary AI Finding</p>
+          <h3 data-result-class>--</h3>
+        </div>
+        <span class="badge" data-result-badge>Clinical Decision Support</span>
+      </div>
+
+      <div class="assessment-metrics">
+        <div class="assessment-metric">
+          <span>Model Confidence</span>
+          <strong data-result-confidence>--</strong>
+        </div>
+        <div class="assessment-metric">
+          <span>Confidence Interpretation</span>
+          <strong data-confidence-label>--</strong>
+        </div>
+      </div>
+
+      <section class="assessment-section">
+        <h4>Assessment Summary</h4>
+        <p data-result-summary></p>
+      </section>
+
+      <section class="assessment-section">
+        <h4>Clinical Recommendations</h4>
+        <ul class="recommendation-list" data-recommendations></ul>
+      </section>
+
+      <section class="assessment-section">
+        <h4>Prediction Probabilities</h4>
+        <div class="probability-list" data-probabilities></div>
+      </section>
+
+      <section class="assessment-metadata">
+        <div><span>Model Name</span><strong data-meta-model>--</strong></div>
+        <div><span>Model Version</span><strong data-meta-version>--</strong></div>
+        <div><span>Analysis Time</span><strong data-meta-time>--</strong></div>
+        <div><span>Image Resolution</span><strong data-meta-resolution>--</strong></div>
+        <div><span>Processing Status</span><strong data-meta-status>--</strong></div>
+      </section>
+
+      <p class="clinical-disclaimer">This AI generated assessment is intended for clinical decision support only and is not a substitute for professional medical diagnosis or treatment.</p>
+    </div>
+  </article>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modelId = "{{ model_id }}";
+  const form = document.getElementById("cnnUploadForm");
+  const fileInput = document.getElementById("cnnImageInput");
+  const fileName = document.querySelector("[data-file-name]");
+  const previewWrap = document.querySelector(".image-preview-wrap");
+  const preview = document.getElementById("imagePreview");
+  const statusBadge = document.querySelector("[data-cnn-status]");
+  const result = document.querySelector("[data-cnn-result]");
+  const empty = document.querySelector("[data-empty-result]");
+  const probabilities = document.querySelector("[data-probabilities]");
+  const recommendations = document.querySelector("[data-recommendations]");
+
+  function titleCase(value) {
+    return String(value || "--")
+      .toLowerCase()
+      .replace(/_/g, " ")
+      .replace(/\b\w/g, (letter) => letter.toUpperCase());
+  }
+
+  function confidenceLabel(percent) {
+    if (percent >= 95) return "Very High Confidence";
+    if (percent >= 85) return "High Confidence";
+    if (percent >= 70) return "Moderate Confidence";
+    return "Low Confidence";
+  }
+
+  function findingTone(predictedClass, percent) {
+    if (predictedClass === "NORMAL") return "normal";
+    if (percent >= 85) return "high";
+    if (percent >= 70) return "moderate";
+    return "low";
+  }
+
+  function formatAnalysisTime(value) {
+    if (!value) return "--";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "--";
+    return date.toLocaleString([], {
+      year: "numeric",
+      month: "short",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit"
+    });
+  }
+
+  function setStatus(label, className) {
+    statusBadge.textContent = label;
+    statusBadge.className = `badge ${className}`;
+  }
+
+  API.get("/cnn/models", true)
+    .then((payload) => {
+      const model = (payload.models || []).find((item) => item.model_id === modelId);
+      if (model && model.fallback_active) setStatus("Dataset fallback", "badge-warning");
+      else if (model && model.loaded) setStatus("CNN loaded", "badge-success");
+      else if (model && model.available) setStatus("Model available", "badge-warning");
+      else setStatus("Model file missing", "badge-danger");
+    })
+    .catch(() => setStatus("Model status unavailable", "badge-warning"));
+
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    fileName.textContent = file ? file.name : "No image selected";
+    if (!file) {
+      previewWrap.hidden = true;
+      preview.removeAttribute("src");
+      return;
+    }
+    preview.src = URL.createObjectURL(file);
+    previewWrap.hidden = false;
+  });
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const file = fileInput.files[0];
+    if (!file) {
+      notify.error("Please select an X-ray image first.");
+      return;
+    }
+    const data = new FormData();
+    data.append("file", file);
+    showLoading("Analyzing chest X-ray...");
+    try {
+      const payload = await API.uploadAI(`/cnn/predict/${modelId}`, data);
+      empty.hidden = true;
+      result.hidden = false;
+      const predictedClass = payload.predicted_class || "--";
+      const percent = Number(payload.confidence_percentage || 0);
+      const tone = findingTone(predictedClass, percent);
+      const badge = document.querySelector("[data-result-badge]");
+      badge.textContent = predictedClass === "PNEUMONIA" ? "Requires Clinical Correlation" : "AI Assisted Assessment";
+      badge.className = `badge assessment-badge assessment-${tone}`;
+      document.querySelector("[data-result-icon]").className = `assessment-icon assessment-${tone}`;
+      document.querySelector("[data-result-class]").textContent = titleCase(predictedClass);
+      document.querySelector("[data-result-confidence]").textContent = `${percent.toFixed(1)}%`;
+      document.querySelector("[data-confidence-label]").textContent = payload.confidence_interpretation?.label || confidenceLabel(percent);
+      document.querySelector("[data-result-summary]").textContent = payload.assessment_summary || payload.diagnosis;
+      recommendations.innerHTML = (payload.clinical_recommendations || []).map((item) => `<li>${item}</li>`).join("");
+      probabilities.innerHTML = Object.entries(payload.probabilities || {}).map(([label, value]) => {
+        const percent = Math.round(value * 1000) / 10;
+        const rowTone = label === "NORMAL" ? "normal" : findingTone(label, percent);
+        return `<div class="probability-row probability-${rowTone}"><span>${titleCase(label)}</span><div class="bar-track"><div style="width:${percent}%"></div></div><strong>${percent}%</strong></div>`;
+      }).join("");
+      const meta = payload.metadata || {};
+      const original = meta.original_image || {};
+      document.querySelector("[data-meta-model]").textContent = meta.model_name || payload.model_name || "--";
+      document.querySelector("[data-meta-version]").textContent = meta.model_version || payload.model_version || "--";
+      document.querySelector("[data-meta-time]").textContent = formatAnalysisTime(meta.analysis_time);
+      document.querySelector("[data-meta-resolution]").textContent = original.width && original.height ? `${original.width} x ${original.height}px` : "--";
+      document.querySelector("[data-meta-status]").textContent = titleCase(meta.processing_status || "completed");
+      notify.success("Image analysis complete.");
+    } catch (error) {
+      notify.error(error.message || "Image analysis failed.");
+    } finally {
+      hideLoading();
+    }
+  });
+});
+</script>
+{% endblock %}

@@ -106,6 +106,17 @@
     <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'prediction_form' 'stroke' %}">Run New Assessment</a>
   </article>
   {% endwith %}
+
+  <article class="card model-card">
+    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+      <span class="stat-icon" style="position:static;">XR</span>
+      <span class="badge badge-info">Image AI</span>
+    </div>
+    <h3>Chest X-ray Pneumonia</h3>
+    <p>Upload a chest X-ray image and run the pretrained CNN pneumonia detector.</p>
+    <p><strong>Input:</strong> JPEG, PNG, or WEBP image</p>
+    <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'image_diagnosis_page' %}">Analyze Image</a>
+  </article>
 </section>
 {% endblock %}
 {% block extra_js %}
