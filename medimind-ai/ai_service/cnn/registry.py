@@ -9,7 +9,7 @@ import numpy as np
 
 from cnn.config import CNNModelConfig, get_cnn_model_configs
 from cnn.fallback import DatasetCentroidFallback
-from cnn.preprocessing import ImageValidationError, preprocess_image
+from cnn.preprocessing import ImageValidationError, OODImageError, preprocess_image, validate_chest_xray
 
 
 class CNNModelUnavailable(RuntimeError):
@@ -53,9 +53,9 @@ class CNNModelRegistry:
     def _load_dataset_fallback(self, model_id: str, config: CNNModelConfig, warning: str) -> None:
         try:
             self.models[model_id] = DatasetCentroidFallback.from_dataset(config)
-            self.backends[model_id] = "dataset_centroid_fallback"
+            self.backends[model_id] = "dataset_knn_fallback"
             self.warnings[model_id] = (
-                f"{warning}. Using labeled xray dataset centroid fallback until the trained CNN artifact is restored."
+                f"{warning}. Using labeled xray dataset nearest-neighbor fallback until the trained CNN artifact is restored."
             )
             self.errors.pop(model_id, None)
         except Exception as exc:
@@ -86,11 +86,39 @@ class CNNModelRegistry:
                 self.load_model(model_id, config)
             raise CNNModelUnavailable(self.errors.get(model_id, "Model is not loaded."))
 
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Out-of-distribution check: reject non-chest-X-ray images
+        try:
+            ood_result = validate_chest_xray(image_bytes, filename=filename, content_type=content_type)
+            if not ood_result.get("ood_skipped", False) and ood_result.get("rejected", False):
+                raise OODImageError(
+                    "Please upload a chest X-ray image."
+                )
+        except OODImageError:
+            raise
+
         processed = preprocess_image(image_bytes, config, filename=filename, content_type=content_type)
         raw_prediction = self.models[model_id].predict(processed.batch, verbose=0)
         probabilities = self._probabilities(config, raw_prediction)
         predicted_class = max(probabilities, key=probabilities.get)
         confidence = float(probabilities[predicted_class])
+        
+        # Determine predicted index for binary model
+        if predicted_class == config.labels.get(1):
+            predicted_index = 1
+        else:
+            predicted_index = 0
+
+        logger.info(
+            f"Prediction Log -> File: {filename} | "
+            f"Raw output: {raw_prediction} | "
+            f"Probabilities: {probabilities} | "
+            f"Predicted index: {predicted_index} | "
+            f"Predicted class: {predicted_class} | "
+            f"Confidence: {confidence}"
+        )
 
         return {
             "model_id": model_id,
@@ -106,6 +134,7 @@ class CNNModelRegistry:
             "diagnosis": self._diagnosis_text(config, predicted_class, confidence),
             "assessment_summary": self._assessment_summary(predicted_class, confidence),
             "clinical_recommendations": self._clinical_recommendations(predicted_class),
+            "formatted_report": self._formatted_report(predicted_class, confidence, probabilities),
             "metadata": {
                 **processed.metadata,
                 "inference_backend": self.backends.get(model_id, "unknown"),
@@ -196,6 +225,31 @@ class CNNModelRegistry:
             "Seek professional medical advice if symptoms worsen or new symptoms appear.",
         ]
 
+    def _formatted_report(self, predicted_class: str, confidence: float, probabilities: dict[str, float]) -> str:
+        percentage = confidence * 100
+        
+        if predicted_class == "PNEUMONIA":
+            interpretation = (
+                "The uploaded chest X Ray shows radiographic patterns consistent with pneumonia. "
+                "This AI generated prediction should assist clinical assessment and is not a substitute "
+                "for evaluation by a qualified healthcare professional."
+            )
+        else:
+            interpretation = (
+                "The uploaded chest X Ray does not show radiographic patterns strongly consistent with pneumonia. "
+                "This AI generated prediction should assist clinical assessment and is not a substitute "
+                "for evaluation by a qualified healthcare professional."
+            )
+        
+        alt_probs = "\n".join([f"{label.capitalize()}: {prob * 100:.1f}%" for label, prob in probabilities.items()])
+        
+        return (
+            f"Prediction: {predicted_class.capitalize()}\n"
+            f"Confidence: {percentage:.1f}%\n\n"
+            f"Interpretation:\n{interpretation}\n\n"
+            f"Alternative Probabilities:\n{alt_probs}"
+        )
+
     def _model_status(self, model_id: str, config: CNNModelConfig) -> dict:
         data = asdict(config)
         data["model_path"] = str(config.model_path)
@@ -204,7 +258,7 @@ class CNNModelRegistry:
         data["loaded"] = model_id in self.models
         data["available"] = config.model_path.exists()
         data["backend"] = self.backends.get(model_id)
-        data["fallback_active"] = self.backends.get(model_id) == "dataset_centroid_fallback"
+        data["fallback_active"] = bool(self.backends.get(model_id, "").endswith("_fallback"))
         data["warning"] = self.warnings.get(model_id)
         data["error"] = self.errors.get(model_id)
         data["dataset_summary"] = self._dataset_summary(config.dataset_dirs)

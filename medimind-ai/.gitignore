@@ -21,6 +21,7 @@ staticfiles/
 *.joblib
 mlruns/
 mlartifacts/
+PNEUMONIA_BACKUP/
 
 .vscode/
 .idea/

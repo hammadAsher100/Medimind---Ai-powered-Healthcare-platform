@@ -38,6 +38,9 @@ def _pneumonia_model_path() -> Path:
         return Path(env_path).expanduser().resolve()
 
     candidates = [
+        PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia_v4.h5",  # Try v4 first
+        PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia_v3.h5",
+        PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia_v2.h5",
         PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia.h5",
         PROJECT_ROOT / "ml" / "cnn" / "cnn_pneumonia.h5",
         PROJECT_ROOT / "ai_service" / "ml_models" / "pneumonia" / "cnn_pneumonia.h5",

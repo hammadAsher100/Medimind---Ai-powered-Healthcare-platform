@@ -37,6 +37,8 @@ joblib==1.4.2
 numpy==2.2.6
 pandas==2.2.3
 scipy==1.15.3
+tensorflow
+keras
 
 # ── Explainability ───────────────────────────────────────────
 shap==0.47.2
