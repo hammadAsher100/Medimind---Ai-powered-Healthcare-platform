@@ -48,7 +48,7 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.EC2_HOST }}
-          username: ubuntu # Change if you are using Amazon Linux (ec2-user)
+          username: ec2-user # Updated for Amazon Linux
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/medimind-ai
