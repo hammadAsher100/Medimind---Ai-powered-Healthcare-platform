@@ -4,8 +4,7 @@
 {% block title %}{{ page_title }} | MediMind AI{% endblock %}
 
 {% block content %}
-<main class="main-content">
-  <header class="page-header">
+<header class="page-header">
     <div class="page-header-row">
       <div>
         <h1 class="page-title">Medications</h1>
@@ -18,7 +17,7 @@
   </header>
 
   {% if alerts %}
-  <div class="card" style="margin-bottom: var(--sp-4); border-left: 4px solid var(--danger);">
+  <div class="card clinical-callout" style="border-left: 4px solid var(--danger);">
     <div class="card-header"><h3 class="card-title">Safety Alerts ({{ alerts.count }})</h3></div>
     <div class="card-body">
       {% for alert in alerts %}
@@ -84,17 +83,16 @@
     </div>
   </div>
 
-  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+  <p class="clinical-disclaimer section-gap">
     Medication information is for reference only. Always verify with a pharmacist or physician before making changes.
   </p>
-</main>
 
 <style>
   .badge-active { background: #d1fae5; color: var(--accent); }
   .badge-discontinued { background: var(--canvas); color: var(--text-muted); }
   .badge-on_hold { background: #fef3c7; color: var(--warning); }
   .badge-unknown { background: var(--canvas); color: var(--text-muted); }
-  .badge-mild { background: #dbeafe; color: var(--info); }
+  .badge-mild { background: var(--info-soft); color: var(--info); }
   .badge-moderate { background: #fef3c7; color: var(--warning); }
   .badge-severe { background: #fee2e2; color: var(--danger); }
   .badge-life_threatening { background: #fee2e2; color: var(--danger); font-weight: 600; }

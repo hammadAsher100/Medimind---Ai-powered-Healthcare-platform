@@ -1,0 +1,127 @@
+# ===========================
+# Python
+# ===========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+*.egg
+dist/
+build/
+eggs/
+*.whl
+pip-log.txt
+pip-delete-this-directory.txt
+.eggs/
+
+# ===========================
+# Virtual Environments
+# ===========================
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.local
+.aienv/
+
+# ===========================
+# ML Models & Artifacts (too large for GitHub)
+# ===========================
+*.h5
+*.hdf5
+*.h5py
+*.keras
+*.pkl
+*.joblib
+*.pt
+*.pth
+*.onnx
+*.model
+*.pb
+*.tflite
+*.weights
+*.ckpt
+*.bin
+mlruns/
+mlartifacts/
+*.zip
+*.tar.gz
+
+# ===========================
+# Data Files (large datasets)
+# ===========================
+*.csv
+*.parquet
+*.feather
+*.sqlite
+*.db3
+*.db
+!medimind-ai/ai_service/conversation_memory.db
+!medimind-ai/ai_service/ml_models/**/eda/*.csv
+
+# ===========================
+# Logs
+# ===========================
+*.log
+logs/
+log/
+npm-debug.log*
+
+# ===========================
+# IDE
+# ===========================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===========================
+# OS
+# ===========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ===========================
+# Django
+# ===========================
+*.sqlite3
+media/
+staticfiles/
+local_settings.py
+db.sqlite3
+
+# ===========================
+# Jupyter
+# ===========================
+.ipynb_checkpoints/
+*.ipynb
+
+# ===========================
+# Testing
+# ===========================
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+coverage.xml
+
+# ===========================
+# Misc
+# ===========================
+*.bak
+*.tmp
+*.temp
+.env.local
+.env.development
+.env.production

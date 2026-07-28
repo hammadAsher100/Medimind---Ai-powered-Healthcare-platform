@@ -4,8 +4,7 @@
 {% block title %}{{ page_title }} | MediMind AI{% endblock %}
 
 {% block content %}
-<main class="main-content">
-  <header class="page-header">
+<header class="page-header">
     <div class="page-header-row">
       <div>
         <h1 class="page-title">FHIR Export</h1>
@@ -29,7 +28,7 @@
   </div>
 
   <!-- Data Summary -->
-  <div class="metric-strip" style="margin: var(--sp-5) 0;">
+  <div class="metric-strip section-gap">
     <div class="metric-strip-item">
       <span class="metric-strip-label">Observations</span>
       <span class="metric-strip-value">{{ observation_count }}</span>
@@ -69,15 +68,14 @@
         <span class="text-muted">FHIR R4 • Bundle type: collection</span>
       </div>
       <div class="card-body">
-        <pre id="fhir-json" style="max-height: 500px; overflow: auto; background: var(--canvas); padding: var(--sp-3); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;"></pre>
+        <pre id="fhir-json" class="code-block"></pre>
       </div>
     </div>
   </div>
 
-  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+  <p class="clinical-disclaimer section-gap">
     This FHIR bundle is generated for educational purposes. It may not contain all clinically relevant data. Do not use for clinical decision-making without verification by a qualified healthcare provider.
   </p>
-</main>
 
 <style>
   .metric-strip { display: flex; gap: var(--sp-5); flex-wrap: wrap; }

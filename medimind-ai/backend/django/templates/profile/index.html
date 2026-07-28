@@ -28,14 +28,14 @@
 <section class="grid grid-2">
   <article class="card">
     <div style="display:flex; gap:18px; align-items:center;">
-      <span class="avatar" style="width:80px; height:80px; font-size:26px;">{{ request.user.first_name|first|default:request.user.username|first|upper }}{{ request.user.last_name|first|upper }}</span>
+      <span class="avatar avatar-lg">{{ request.user.first_name|first|default:request.user.username|first|upper }}{{ request.user.last_name|first|upper }}</span>
       <div>
         <h3 id="displayName">{{ request.user.get_full_name|default:request.user.username }}</h3>
         <p id="displayEmail">{{ request.user.email }}</p>
         <p id="displayPhone">{{ request.user.phone_number|default:"Phone not provided" }}</p>
       </div>
     </div>
-    <button class="btn btn-secondary" style="margin-top:18px;" onclick="openModal('personalModal')">Edit Personal Info</button>
+    <button class="btn btn-secondary section-gap" onclick="openModal('personalModal')">Edit Personal Info</button>
   </article>
 
   <article class="card">
@@ -50,13 +50,13 @@
   </article>
 </section>
 
-<section class="grid grid-2" style="margin-top:24px;">
+<section class="grid grid-2 section-gap">
   <article class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 class="card-title" style="margin:0;">Allergies</h3>
+    <div class="card-header-row">
+      <h3 class="card-title">Allergies</h3>
       <button class="btn btn-primary" onclick="openModal('allergyModal')">+ Add</button>
     </div>
-    <table class="data-table" style="margin-top:14px;">
+    <table class="data-table" style="margin-top:var(--sp-3);">
       <thead><tr><th>Allergen</th><th>Severity</th><th>Notes</th><th></th></tr></thead>
       <tbody id="allergyRows">
         {% for allergy in allergies %}
@@ -74,11 +74,11 @@
   </article>
 
   <article class="card">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-      <h3 class="card-title" style="margin:0;">Family History</h3>
+    <div class="card-header-row">
+      <h3 class="card-title">Family History</h3>
       <button class="btn btn-primary" onclick="openModal('familyModal')">+ Add</button>
     </div>
-    <table class="data-table" style="margin-top:14px;">
+    <table class="data-table" style="margin-top:var(--sp-3);">
       <thead><tr><th>Condition</th><th>Relation</th><th>Notes</th><th></th></tr></thead>
       <tbody id="familyRows">
         {% for item in family_history %}

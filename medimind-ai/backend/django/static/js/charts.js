@@ -10,7 +10,7 @@ const chartPalette = {
   success: "#194D3A",
   warning: "#B45309",
   danger: "#9B2C2C",
-  info: "#1E40AF",
+  info: "#2D7A5E",
   border: "#E5E4E0",
   text: "#151714",
   muted: "#90948B",

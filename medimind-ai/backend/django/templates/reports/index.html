@@ -1,10 +1,15 @@
 {% extends "base.html" %}
 {% block content %}
 <div class="page-header">
-  <div><p class="page-eyebrow">Reports</p><h2 class="page-title">Medical Reports</h2><p class="page-subtitle">Review uploaded reports, AI findings, and analysis status.</p></div>
+  <div>
+    <p class="page-eyebrow">Reports</p>
+    <h2 class="page-title">Medical Reports</h2>
+    <p class="page-subtitle">Review uploaded reports, AI findings, and analysis status.</p>
+  </div>
   <a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload New Report</a>
 </div>
-<section class="grid grid-2" style="margin-bottom:24px;">
+
+<section class="grid grid-2 section-gap">
   <article class="card chart-panel compact">
     <div class="chart-panel-header">
       <div>
@@ -12,7 +17,7 @@
         <p class="chart-kicker">Distribution of uploaded report categories.</p>
       </div>
     </div>
-    <div class="chart-wrap small"><canvas id="reportTypeMix"></canvas></div>
+    <div class="chart-wrap small"><canvas id="reportTypeMix" aria-label="Report type distribution" role="img"></canvas></div>
   </article>
   <article class="card chart-panel compact">
     <div class="chart-panel-header">
@@ -21,15 +26,16 @@
         <p class="chart-kicker">Current review readiness across all reports.</p>
       </div>
     </div>
-    <div class="chart-wrap small"><canvas id="reportStatus"></canvas></div>
+    <div class="chart-wrap small"><canvas id="reportStatus" aria-label="Analysis status chart" role="img"></canvas></div>
   </article>
 </section>
-<section class="card">
+
+<section class="card section-gap">
   <div class="filter-bar">
-    <select><option>All Types</option><option>Blood</option><option>Lab</option><option>Imaging</option></select>
-    <select><option>This Month</option><option>Last 3 Months</option><option>This Year</option></select>
-    <select><option>Status: All</option><option>Analyzed</option><option>Processing</option><option>Failed</option></select>
-    <input class="search-input" type="search" placeholder="Search reports...">
+    <select aria-label="Filter by type"><option>All Types</option><option>Blood</option><option>Lab</option><option>Imaging</option></select>
+    <select aria-label="Filter by date"><option>This Month</option><option>Last 3 Months</option><option>This Year</option></select>
+    <select aria-label="Filter by status"><option>Status: All</option><option>Analyzed</option><option>Processing</option><option>Failed</option></select>
+    <input class="search-input" type="search" placeholder="Search reports..." aria-label="Search reports">
   </div>
   {% if reports %}
     <div class="table-wrap">
@@ -51,7 +57,13 @@
       </table>
     </div>
   {% else %}
-    <div class="empty-state"><div><strong>No reports yet</strong><p>Upload your first medical report to get started.</p><a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload Report →</a></div></div>
+    <div class="empty-state">
+      <div>
+        <strong>No reports yet</strong>
+        <p>Upload your first medical report to get started.</p>
+        <a class="btn btn-primary" href="{% url 'upload_report_page' %}">Upload Report →</a>
+      </div>
+    </div>
   {% endif %}
 </section>
 {% endblock %}
@@ -66,7 +78,7 @@ document.addEventListener("DOMContentLoaded", () => {
     {% if report.analysis_result and report.analysis_result != "{}" %}analyzed += 1;{% else %}pending += 1;{% endif %}
   {% endfor %}
   const total = analyzed + pending;
-  makeDoughnutChart(document.getElementById("reportTypeMix"), ["Blood", "Lab", "Imaging", "Other"], [typeCounts.blood, typeCounts.lab, typeCounts.imaging, typeCounts.other], ["#9B2C2C", "#194D3A", "#1E40AF", "#90948B"]);
+  makeDoughnutChart(document.getElementById("reportTypeMix"), ["Blood", "Lab", "Imaging", "Other"], [typeCounts.blood, typeCounts.lab, typeCounts.imaging, typeCounts.other], ["#9B2C2C", "#194D3A", "#2D7A5E", "#90948B"]);
   makeBarChart(document.getElementById("reportStatus"), ["Analyzed", "Pending"], total ? [analyzed, pending] : [0, 1], ["#194D3A", "#B45309"]);
 });
 </script>

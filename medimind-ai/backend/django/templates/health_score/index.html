@@ -111,7 +111,7 @@
   </div>
 </section>
 
-<section class="card" style="margin-top:24px;">
+<section class="card section-gap">
   <h3 class="card-title">Calculate New Health Score</h3>
   <p class="page-subtitle" style="margin-top:0;">Enter your current health metrics to calculate an updated score.</p>
   <form id="healthScoreForm">
@@ -130,20 +130,20 @@
         <select name="exercise_frequency"><option value="">Select...</option><option value="none">None</option><option value="weekly">Weekly</option><option value="several_weekly">Several times weekly</option><option value="daily">Daily</option></select>
       </div>
     </div>
-    <div style="margin-top:18px; display:flex; gap:12px;">
+    <div class="form-actions section-gap">
       <button class="btn btn-primary" type="submit">Calculate Score →</button>
     </div>
   </form>
 </section>
 
-<section class="grid grid-4" style="margin-top:24px;">
+<section class="grid grid-4 section-gap">
   <article class="card stat-card"><p class="stat-label">BMI</p><p class="stat-value">{% if latest_score and latest_score.bmi %}{{ latest_score.bmi }}{% else %}--{% endif %}</p></article>
   <article class="card stat-card"><p class="stat-label">Blood Sugar</p><p class="stat-value">{% if latest_score and latest_score.sugar_level %}{{ latest_score.sugar_level }}{% else %}--{% endif %}</p><p class="stat-note">mg/dL</p></article>
   <article class="card stat-card"><p class="stat-label">Cholesterol</p><p class="stat-value">{% if latest_score and latest_score.cholesterol %}{{ latest_score.cholesterol }}{% else %}--{% endif %}</p><p class="stat-note">mg/dL</p></article>
   <article class="card stat-card"><p class="stat-label">Blood Pressure</p><p class="stat-value">{% if latest_score and latest_score.blood_pressure_systolic %}{{ latest_score.blood_pressure_systolic }}/{{ latest_score.blood_pressure_diastolic }}{% else %}--/--{% endif %}</p><p class="stat-note">mmHg</p></article>
 </section>
 
-<section class="analytics-grid" style="margin-top:24px;">
+<section class="analytics-grid section-gap">
   <article class="card chart-panel">
     <div class="chart-panel-header">
       <div>
@@ -164,7 +164,7 @@
   </article>
 </section>
 
-<section class="card chart-panel compact" style="margin-top:24px;">
+<section class="card chart-panel compact section-gap">
   <div class="chart-panel-header">
     <div>
       <h3 class="card-title">Current Clinical Markers</h3>
@@ -207,7 +207,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Math.max(0, 100 - Math.max(0, cholesterol - 170) * .8),
     Math.max(0, 100 - Math.max(0, systolic - 115) * 1.4)
   ]);
-  makeBarChart(document.getElementById("markerBars"), ["BMI", "Glucose", "Cholesterol", "Systolic BP"], [bmi, glucose, cholesterol, systolic], ["#194D3A", "#2D7A5E", "#B45309", "#1E40AF"]);
+  makeBarChart(document.getElementById("markerBars"), ["BMI", "Glucose", "Cholesterol", "Systolic BP"], [bmi, glucose, cholesterol, systolic], ["#194D3A", "#2D7A5E", "#B45309", "#2D7A5E"]);
 });
 
 // Health score form submission - routes through Django API which saves the result

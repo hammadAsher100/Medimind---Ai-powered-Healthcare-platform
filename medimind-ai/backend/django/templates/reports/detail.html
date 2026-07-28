@@ -3,7 +3,7 @@
 {% if report %}
 <div class="page-header">
   <div><p class="page-eyebrow">Report Detail</p><h2 class="page-title">{{ report.file.name|default:"Medical Report" }}</h2><p class="page-subtitle">{{ report.get_report_type_display }} report uploaded {{ report.uploaded_at|date:"M d, Y" }}</p></div>
-  <div style="display:flex; gap:10px;"><a class="btn btn-secondary" href="{{ report.file.url }}">Download PDF</a><button class="btn btn-secondary">Share</button><button class="btn btn-danger">Delete</button></div>
+  <div class="form-actions"><a class="btn btn-secondary" href="{{ report.file.url }}">Download PDF</a><button class="btn btn-secondary">Share</button><button class="btn btn-danger">Delete</button></div>
 </div>
 <section class="card">
   <h3 class="card-title">Lab Values</h3>
@@ -14,7 +14,7 @@
     </table>
   </div>
 </section>
-<section class="card" style="margin-top:24px;">
+<section class="card section-gap">
   <h3 class="card-title">AI Summary</h3>
   <p>{{ report.summary|default:"The AI summary is being prepared. Review extracted values and consult your clinician for medical decisions." }}</p>
   <h4>What this means for you</h4>

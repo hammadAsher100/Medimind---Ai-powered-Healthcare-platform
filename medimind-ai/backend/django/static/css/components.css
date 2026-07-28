@@ -1,6 +1,6 @@
 /*
- * MediMind AI — Components
- * Flat, clean components. No gradients. No shadows. No glassmorphism.
+ * MediMind AI — Components v2
+ * Clean, professional clinical components.
  * Loaded AFTER design-system.css.
  */
 
@@ -8,11 +8,31 @@
 .stat-card {
   position: relative;
   min-height: 160px;
-  transition: border-color var(--duration-fast) var(--ease);
+  padding: var(--sp-6) var(--sp-6) var(--sp-5);
+  transition: border-color var(--duration-fast) var(--ease),
+              box-shadow var(--duration-fast) var(--ease);
 }
 
 .stat-card:hover {
   border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(26, 92, 122, 0.08);
+}
+
+.stat-card .stat-label {
+  margin-bottom: var(--sp-2);
+}
+
+.stat-card .stat-value {
+  margin-bottom: var(--sp-2);
+}
+
+.stat-card .stat-note {
+  margin-top: auto;
+}
+
+/* ── Section Spacing ───────────────────────────────── */
+.section-gap {
+  margin-top: var(--sp-6);
 }
 
 /* ── Hero Result ───────────────────────────────────── */
@@ -42,6 +62,7 @@
   font-size: var(--text-4xl);
   line-height: 1;
   letter-spacing: -0.03em;
+  font-weight: 400;
 }
 
 /* ── Model Cards ───────────────────────────────────── */
@@ -54,10 +75,121 @@
 .model-card {
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
 }
 
 .model-card::after {
   display: none;
+}
+
+.model-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
+}
+
+.model-card h3 {
+  font-family: var(--font-serif);
+  font-size: var(--text-lg);
+  color: var(--text-primary);
+}
+
+.model-card p {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  margin: 0;
+}
+
+.model-card strong {
+  color: var(--text-primary);
+}
+
+.model-card .btn {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--sp-3);
+}
+
+.result-grid {
+  margin-top: var(--sp-6);
+}
+
+.result-sidebar {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.form-actions--center {
+  display: flex;
+  justify-content: center;
+  gap: var(--sp-3);
+}
+
+.text-center { text-align: center; }
+
+/* ── Logout Button ──────────────────────────────────── */
+.logout-form {
+  display: block;
+  padding: var(--sp-3);
+}
+
+.logout-button {
+  background: none;
+  border: none;
+  display: block;
+  width: 100%;
+  padding: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+
+/* ── Code Block ─────────────────────────────────────── */
+.code-block {
+  max-height: 500px;
+  overflow: auto;
+  background: var(--canvas);
+  padding: var(--sp-3);
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.8rem;
+}
+
+/* ── Avatar Sizes ───────────────────────────────────── */
+.avatar-lg {
+  width: 80px;
+  height: 80px;
+  font-size: 26px;
+}
+
+/* ── Card Header Row ────────────────────────────────── */
+.card-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.card-header-row h3 {
+  margin: 0;
+}
+
+/* ── Emergency Banner ───────────────────────────────── */
+.emergency-banner {
+  display: none;
+  border-color: rgba(239, 68, 68, 0.3);
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 .mini-ring {
@@ -194,6 +326,74 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--sp-4);
+}
+
+/* ── Prediction Forms ──────────────────────────────── */
+.prediction-form .disclaimer {
+  margin-top: var(--sp-5);
+}
+
+.prediction-form .form-actions {
+  margin-top: var(--sp-5);
+}
+
+/* ── Simulator (Counterfactual) ────────────────────── */
+.sim-controls {
+  display: grid;
+  gap: var(--sp-5);
+}
+
+.sim-actions {
+  display: flex;
+  gap: var(--sp-3);
+}
+
+.mod-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.mod-list-empty {
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+.mod-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.mod-remove {
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  padding: var(--sp-1);
+}
+
+.sim-loading {
+  text-align: center;
+  padding: var(--sp-10);
+}
+
+.sim-loading .spinner {
+  margin: 0 auto var(--sp-4);
+}
+
+.sim-loading strong {
+  color: var(--text-primary);
+  font-family: var(--font-serif);
 }
 
 /* ── Responsive ────────────────────────────────────── */

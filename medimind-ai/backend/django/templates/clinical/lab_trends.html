@@ -4,14 +4,13 @@
 {% block title %}{{ page_title }} | MediMind AI{% endblock %}
 
 {% block content %}
-<main class="main-content">
-  <header class="page-header">
+<header class="page-header">
     <h1 class="page-title">Lab Trends</h1>
     <p class="page-subtitle">Longitudinal laboratory results tracking</p>
   </header>
 
   {% if test_names %}
-  <div class="card" style="margin-bottom: var(--sp-5);">
+  <div class="card section-gap">
     <div class="card-body">
       <form class="grid-4" id="trend-filter" style="align-items: end;">
         <div class="form-group">
@@ -93,10 +92,9 @@
   </div>
   {% endif %}
 
-  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+  <p class="clinical-disclaimer section-gap">
     Trend analysis is based on reference ranges and deterministic calculations. Clinical interpretation should be performed by a qualified healthcare provider.
   </p>
-</main>
 
 <style>
   .status-normal { color: var(--accent); font-weight: 500; }

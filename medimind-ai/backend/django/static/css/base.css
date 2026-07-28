@@ -220,6 +220,30 @@
   background: var(--border);
 }
 
+/* ── Auth Utilities ─────────────────────────────────── */
+.password-field {
+  position: relative;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 4px;
+  top: 4px;
+  min-height: 32px;
+}
+
+.remember-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: var(--sp-4) 0 var(--sp-5);
+}
+
+.auth-link {
+  color: var(--accent);
+  font-weight: 700;
+}
+
 @media (max-width: 900px) {
   .auth-body { grid-template-columns: 1fr; }
   .auth-brand { min-height: auto; padding: var(--sp-8); }

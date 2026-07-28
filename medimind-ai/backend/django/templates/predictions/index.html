@@ -7,25 +7,25 @@
     <p class="page-subtitle">Run educational AI risk assessments using your current health indicators.</p>
   </div>
 </div>
-<section class="card chart-panel compact" style="margin-bottom:24px;">
+
+<section class="card chart-panel compact section-gap">
   <div class="chart-panel-header">
     <div>
       <h3 class="card-title">Risk Model Comparison</h3>
       <p class="chart-kicker">Compare latest disease-risk percentages across available models.</p>
     </div>
-    <span class="badge badge-info">Live Chart</span>
   </div>
-  <div class="chart-wrap small"><canvas id="riskComparison"></canvas></div>
+  <div class="chart-wrap small"><canvas id="riskComparison" aria-label="Risk comparison bar chart" role="img"></canvas></div>
 </section>
 
-<section class="model-card-grid">
-  {% with disease="diabetes" icon="▣" title="Diabetes Risk" %}
+<section class="model-card-grid section-gap">
+
   <article class="card model-card">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-      <span class="stat-icon" style="position:static;">{{ icon }}</span>
-      <div class="mini-ring" style="--risk:{% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    <div class="model-card-header">
+      <span class="stat-icon" aria-hidden="true">▣</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.diabetes %}{{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}%{% else %}—{% endif %}</span></div>
     </div>
-    <h3>{{ title }}</h3>
+    <h3>Diabetes Risk</h3>
     {% if latest_predictions.diabetes %}
       <p>Last checked: {{ latest_predictions.diabetes.created_at|timesince }} ago</p>
       <p><strong>Risk: {{ latest_predictions.diabetes.risk_percentage|floatformat:0 }}%</strong>
@@ -37,17 +37,15 @@
       <p>Never assessed</p>
       <p><strong>Risk: —</strong> <span class="badge badge-info">Not Run</span></p>
     {% endif %}
-    <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'prediction_form' 'diabetes' %}">Run New Assessment</a>
+    <a class="btn btn-primary" href="{% url 'prediction_form' 'diabetes' %}">Run New Assessment</a>
   </article>
-  {% endwith %}
 
-  {% with disease="heart" icon="♥" title="Heart Disease Risk" %}
   <article class="card model-card">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-      <span class="stat-icon" style="position:static;">{{ icon }}</span>
-      <div class="mini-ring" style="--risk:{% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    <div class="model-card-header">
+      <span class="stat-icon" aria-hidden="true">♥</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.heart %}{{ latest_predictions.heart.risk_percentage|floatformat:0 }}%{% else %}—{% endif %}</span></div>
     </div>
-    <h3>{{ title }}</h3>
+    <h3>Heart Disease Risk</h3>
     {% if latest_predictions.heart %}
       <p>Last checked: {{ latest_predictions.heart.created_at|timesince }} ago</p>
       <p><strong>Risk: {{ latest_predictions.heart.risk_percentage|floatformat:0 }}%</strong>
@@ -59,17 +57,15 @@
       <p>Never assessed</p>
       <p><strong>Risk: —</strong> <span class="badge badge-info">Not Run</span></p>
     {% endif %}
-    <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'prediction_form' 'heart' %}">Run New Assessment</a>
+    <a class="btn btn-primary" href="{% url 'prediction_form' 'heart' %}">Run New Assessment</a>
   </article>
-  {% endwith %}
 
-  {% with disease="kidney" icon="◌" title="Kidney Disease Risk" %}
   <article class="card model-card">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-      <span class="stat-icon" style="position:static;">{{ icon }}</span>
-      <div class="mini-ring" style="--risk:{% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    <div class="model-card-header">
+      <span class="stat-icon" aria-hidden="true">◌</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.kidney %}{{ latest_predictions.kidney.risk_percentage|floatformat:0 }}%{% else %}—{% endif %}</span></div>
     </div>
-    <h3>{{ title }}</h3>
+    <h3>Kidney Disease Risk</h3>
     {% if latest_predictions.kidney %}
       <p>Last checked: {{ latest_predictions.kidney.created_at|timesince }} ago</p>
       <p><strong>Risk: {{ latest_predictions.kidney.risk_percentage|floatformat:0 }}%</strong>
@@ -81,17 +77,15 @@
       <p>Never assessed</p>
       <p><strong>Risk: —</strong> <span class="badge badge-info">Not Run</span></p>
     {% endif %}
-    <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'prediction_form' 'kidney' %}">Run New Assessment</a>
+    <a class="btn btn-primary" href="{% url 'prediction_form' 'kidney' %}">Run New Assessment</a>
   </article>
-  {% endwith %}
 
-  {% with disease="stroke" icon="◎" title="Stroke Risk" %}
   <article class="card model-card">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-      <span class="stat-icon" style="position:static;">{{ icon }}</span>
-      <div class="mini-ring" style="--risk:{% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}%{% else %}--{% endif %}</span></div>
+    <div class="model-card-header">
+      <span class="stat-icon" aria-hidden="true">◎</span>
+      <div class="mini-ring" style="--risk:{% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}{% else %}0{% endif %};"><span>{% if latest_predictions.stroke %}{{ latest_predictions.stroke.risk_percentage|floatformat:0 }}%{% else %}—{% endif %}</span></div>
     </div>
-    <h3>{{ title }}</h3>
+    <h3>Stroke Risk</h3>
     {% if latest_predictions.stroke %}
       <p>Last checked: {{ latest_predictions.stroke.created_at|timesince }} ago</p>
       <p><strong>Risk: {{ latest_predictions.stroke.risk_percentage|floatformat:0 }}%</strong>
@@ -103,20 +97,20 @@
       <p>Never assessed</p>
       <p><strong>Risk: —</strong> <span class="badge badge-info">Not Run</span></p>
     {% endif %}
-    <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'prediction_form' 'stroke' %}">Run New Assessment</a>
+    <a class="btn btn-primary" href="{% url 'prediction_form' 'stroke' %}">Run New Assessment</a>
   </article>
-  {% endwith %}
 
   <article class="card model-card">
-    <div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-      <span class="stat-icon" style="position:static;">XR</span>
+    <div class="model-card-header">
+      <span class="stat-icon" aria-hidden="true">XR</span>
       <span class="badge badge-info">Image AI</span>
     </div>
     <h3>Chest X-ray Pneumonia</h3>
     <p>Upload a chest X-ray image and run the pretrained CNN pneumonia detector.</p>
     <p><strong>Input:</strong> JPEG, PNG, or WEBP image</p>
-    <a class="btn btn-primary" style="margin-top:12px;" href="{% url 'image_diagnosis_page' %}">Analyze Image</a>
+    <a class="btn btn-primary" href="{% url 'image_diagnosis_page' %}">Analyze Image</a>
   </article>
+
 </section>
 {% endblock %}
 {% block extra_js %}
@@ -131,7 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
       parseFloat("{{ latest_predictions.kidney.risk_percentage|default:'0' }}") || 0,
       parseFloat("{{ latest_predictions.stroke.risk_percentage|default:'0' }}") || 0
     ],
-    ["#194D3A", "#9B2C2C", "#2D7A5E", "#1E40AF"]
+    ["#194D3A", "#9B2C2C", "#2D7A5E", "#2D7A5E"]
   );
 });
 </script>
