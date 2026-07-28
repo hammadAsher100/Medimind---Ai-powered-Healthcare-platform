@@ -64,8 +64,9 @@ def get_cnn_model_configs() -> dict[str, CNNModelConfig]:
         normalization="rescale_1_255",
         threshold=0.5,
         dataset_dirs=(
-            PROJECT_ROOT / "data" / "raw" / "xray",
-            PROJECT_ROOT / "data" / "processed" / "xray",
+            PROJECT_ROOT / "data" / "raw" / "xray" / "chest_xray",  # Primary: nested dataset
+            PROJECT_ROOT / "data" / "raw" / "xray",                 # Fallback: flat structure
+            PROJECT_ROOT / "data" / "processed" / "xray",           # Fallback: processed
         ),
         training_source=PROJECT_ROOT / "ml" / "cnn" / "train.py",
         description=(

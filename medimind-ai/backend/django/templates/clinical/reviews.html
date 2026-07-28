@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | MediMind AI{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <header class="page-header">
+    <h1 class="page-title">Reviews & Feedback</h1>
+    <p class="page-subtitle">Clinician review decisions and model feedback tracking</p>
+  </header>
+
+  <div class="grid-3">
+    <!-- Reviews -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Review Decisions</h3></div>
+      <div class="card-body">
+        {% if reviews %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Type</th>
+              <th>Decision</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for review in reviews %}
+            <tr>
+              <td>{{ review.recommendation_type }}</td>
+              <td><span class="badge badge-{{ review.clinician_decision }}">{{ review.get_clinician_decision_display }}</span></td>
+              <td>{{ review.created_at|timesince }} ago</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted">No reviews yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No review decisions recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Model Feedback -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Model Feedback</h3></div>
+      <div class="card-body">
+        {% if feedback %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Feedback</th>
+              <th>Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for item in feedback %}
+            <tr>
+              <td>{{ item.model_name }}</td>
+              <td><span class="badge badge-{{ item.feedback_type }}">{{ item.get_feedback_type_display }}</span></td>
+              <td>{{ item.created_at|timesince }} ago</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted">No feedback yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No model feedback recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Audit Events -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Audit Events</h3></div>
+      <div class="card-body">
+        {% if audit_events %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Event Type</th>
+              <th>Source</th>
+              <th>Time</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for event in audit_events %}
+            <tr>
+              <td>{{ event.get_event_type_display }}</td>
+              <td>{{ event.source }}</td>
+              <td>{{ event.created_at|timesince }} ago</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3" class="text-muted">No events yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No audit events recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Manual Feedback Form -->
+  <div class="card" style="margin-top: var(--sp-5);">
+    <div class="card-header"><h3 class="card-title">Submit Feedback</h3></div>
+    <div class="card-body">
+      <form id="feedback-form" class="grid-2">
+        <div class="form-group">
+          <label class="form-label">Model Name</label>
+          <input class="form-control" id="fb-model" placeholder="e.g., diabetes_prediction" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Feedback Type</label>
+          <select class="form-control" id="fb-type">
+            <option value="correct">Correct</option>
+            <option value="partially_correct">Partially Correct</option>
+            <option value="incorrect">Incorrect</option>
+            <option value="missing_information">Missing Information</option>
+            <option value="hallucination">Hallucination</option>
+          </select>
+        </div>
+        <div class="form-group" style="grid-column: 1 / -1;">
+          <label class="form-label">Notes</label>
+          <textarea class="form-control" id="fb-notes" rows="3"></textarea>
+        </div>
+        <button type="button" class="btn btn-primary" onclick="submitFeedback()">Submit Feedback</button>
+      </form>
+    </div>
+  </div>
+
+  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+    Your feedback helps improve AI model accuracy. All feedback is reviewed regularly for model retraining.
+  </p>
+</main>
+
+<style>
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th, .data-table td { padding: var(--sp-2) var(--sp-3); text-align: left; border-bottom: 1px solid var(--border); }
+  .data-table th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .badge-accepted { background: #d1fae5; color: var(--accent); }
+  .badge-modified { background: #fef3c7; color: var(--warning); }
+  .badge-rejected { background: #fee2e2; color: var(--danger); }
+  .badge-deferred { background: var(--canvas); color: var(--text-muted); }
+  .badge-correct { background: #d1fae5; color: var(--accent); }
+  .badge-incorrect { background: #fee2e2; color: var(--danger); }
+  .badge-hallucination { background: #fee2e2; color: var(--danger); font-weight: 600; }
+  .badge-partially_correct { background: #fef3c7; color: var(--warning); }
+  .badge-missing_information { background: var(--canvas); color: var(--text-muted); }
+</style>
+
+<script>
+function submitFeedback() {
+  const modelName = document.getElementById('fb-model').value.trim();
+  if (!modelName) {
+    alert('Enter a model name.');
+    return;
+  }
+
+  showLoading();
+  fetch('/api/reviews/feedback/', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-CSRFToken': getCSRFToken(),
+    },
+    body: JSON.stringify({
+      model_name: modelName,
+      feedback_type: document.getElementById('fb-type').value,
+      notes: document.getElementById('fb-notes').value.trim(),
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    hideLoading();
+    if (data.id) {
+      alert('Feedback submitted. Thank you!');
+      document.getElementById('fb-model').value = '';
+      document.getElementById('fb-notes').value = '';
+      location.reload();
+    } else {
+      alert('Error: ' + JSON.stringify(data));
+    }
+  })
+  .catch(err => {
+    hideLoading();
+    alert('Error submitting feedback. Please try again.');
+  });
+}
+
+function getCSRFToken() {
+  return document.cookie.split('; ')
+    .find(c => c.startsWith('csrftoken='))
+    ?.split('=')[1] || '';
+}
+</script>
+{% endblock %}

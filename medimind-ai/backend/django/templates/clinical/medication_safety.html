@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | MediMind AI{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <header class="page-header">
+    <h1 class="page-title">Medication Safety Passport</h1>
+    <p class="page-subtitle">Drug interaction checks, allergy screening, and safety alerts</p>
+  </header>
+
+  <!-- Run Safety Check -->
+  <div class="card" style="margin-bottom: var(--sp-5);">
+    <div class="card-body">
+      <button class="btn btn-primary" onclick="runSafetyCheck()">Run Full Safety Check</button>
+      <span class="text-muted" style="margin-left: var(--sp-3);">Checks interactions, allergies, and duplicate therapies</span>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="safety-results" style="display: none;"></div>
+
+  <!-- Active Medications -->
+  <div class="card" style="margin-bottom: var(--sp-4);">
+    <div class="card-header"><h3 class="card-title">Active Medications</h3></div>
+    <div class="card-body">
+      {% if medications %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Medication</th>
+            <th>Dosage</th>
+            <th>Frequency</th>
+            <th>Class</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for med in medications %}
+          <tr>
+            <td><strong>{{ med.medication.name }}</strong></td>
+            <td>{{ med.dosage|default:"—" }}</td>
+            <td>{{ med.frequency|default:"—" }}</td>
+            <td>{{ med.medication.drug_class|default:"—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <p class="text-muted">No active medications.</p>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Allergies -->
+  {% if allergies %}
+  <div class="card" style="margin-bottom: var(--sp-4);">
+    <div class="card-header"><h3 class="card-title">Known Allergies</h3></div>
+    <div class="card-body">
+      <table class="data-table">
+        <thead>
+          <tr><th>Allergen</th><th>Reaction</th><th>Severity</th></tr>
+        </thead>
+        <tbody>
+          {% for allergy in allergies %}
+          <tr>
+            <td><strong>{{ allergy.allergen }}</strong></td>
+            <td>{{ allergy.reaction_type|default:"—" }}</td>
+            <td><span class="badge badge-{{ allergy.severity }}">{{ allergy.get_severity_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Historical Alerts -->
+  {% if alerts %}
+  <div class="card">
+    <div class="card-header"><h3 class="card-title">Alert History</h3></div>
+    <div class="card-body">
+      {% for alert in alerts %}
+      <div class="finding-item finding-{{ alert.severity }}">
+        <strong>{{ alert.title }}</strong>
+        <span class="badge badge-{{ alert.severity }}">{{ alert.get_severity_display }}</span>
+        <p class="text-muted" style="margin-top: var(--sp-1);">{{ alert.description }}</p>
+        <p class="text-muted" style="font-size: 0.75rem;">{{ alert.created_at|timesince }} ago</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+    This is an automated safety screening. It does not replace professional pharmacist or physician review. Always consult a qualified healthcare provider before making medication decisions.
+  </p>
+</main>
+
+<style>
+  .finding-item { padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); }
+  .finding-item:last-child { border-bottom: none; }
+  .finding-critical { border-left: 3px solid var(--danger); padding-left: var(--sp-3); margin-bottom: var(--sp-2); }
+  .finding-warning { border-left: 3px solid var(--warning); padding-left: var(--sp-3); margin-bottom: var(--sp-2); }
+  .finding-info { border-left: 3px solid var(--info); padding-left: var(--sp-3); margin-bottom: var(--sp-2); }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th, .data-table td { padding: var(--sp-2) var(--sp-3); text-align: left; border-bottom: 1px solid var(--border); }
+  .data-table th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+</style>
+
+<script>
+function runSafetyCheck() {
+  showLoading();
+  const resultEl = document.getElementById('safety-results');
+  const meds = [];
+  const allergies = [];
+
+  document.querySelectorAll('.data-table tbody tr').forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (!cells.length) return;
+    // Simplified: collect medication names from first table, allergies from second
+    // We'll rely on the server-side check with what data the server has
+  });
+
+  fetch('/ai/medication/safety-check', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      user_id: {{ request.user.id }},
+      medications: [],
+      allergies: [],
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    hideLoading();
+    resultEl.style.display = 'block';
+    let alertsHtml = '';
+    if (data.alerts && data.alerts.length) {
+      data.alerts.forEach(a => {
+        const sevClass = a.severity === 'critical' ? 'finding-critical' : a.severity === 'warning' ? 'finding-warning' : 'finding-info';
+        alertsHtml += `
+          <div class="${sevClass}">
+            <strong>${a.title}</strong>
+            <span class="badge badge-${a.severity}">${a.severity}</span>
+            <p class="text-muted">${a.description}</p>
+          </div>`;
+      });
+    } else {
+      alertsHtml = '<p class="text-muted">No safety concerns detected.</p>';
+    }
+    resultEl.innerHTML = `
+      <div class="card" style="margin-bottom:var(--sp-4)">
+        <div class="card-header"><h3 class="card-title">Safety Check Results</h3></div>
+        <div class="card-body">
+          <div class="metric-strip" style="margin-bottom:var(--sp-3)">
+            <div class="metric-strip-item">
+              <span class="metric-strip-label">Critical</span>
+              <span class="metric-strip-value" style="color:var(--danger)">${data.critical_count ?? 0}</span>
+            </div>
+            <div class="metric-strip-item">
+              <span class="metric-strip-label">Warnings</span>
+              <span class="metric-strip-value" style="color:var(--warning)">${data.warning_count ?? 0}</span>
+            </div>
+            <div class="metric-strip-item">
+              <span class="metric-strip-label">Total Alerts</span>
+              <span class="metric-strip-value">${data.total_alerts ?? 0}</span>
+            </div>
+            <div class="metric-strip-item">
+              <span class="metric-strip-label">Medications</span>
+              <span class="metric-strip-value">${data.medication_count ?? 0}</span>
+            </div>
+          </div>
+          ${alertsHtml}
+          <p class="clinical-disclaimer">${data.disclaimer || ''}</p>
+        </div>
+      </div>`;
+  })
+  .catch(err => {
+    hideLoading();
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div class="card"><div class="card-body"><p class="text-danger">Error running safety check. Server may be unavailable.</p></div></div>';
+  });
+}
+</script>
+{% endblock %}

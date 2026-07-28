@@ -1,0 +1,191 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | MediMind AI{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <header class="page-header">
+    <div class="page-header-row">
+      <div>
+        <h1 class="page-title">Clinical Intelligence</h1>
+        <p class="page-subtitle">Patient state overview and data integrity</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn btn-sm" onclick="refreshPatientState()">Refresh State</button>
+        <a href="{% url 'lab_trends_page' %}" class="btn btn-sm">Lab Trends</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Priority Banner -->
+  {% if patient_state %}
+  <div class="card priority-card priority-{{ patient_state.priority_level }}">
+    <div class="card-body">
+      <div class="metric-strip">
+        <div class="metric-strip-item">
+          <span class="metric-strip-label">Priority</span>
+          <span class="metric-strip-value">{{ patient_state.get_priority_level_display }}</span>
+        </div>
+        <div class="metric-strip-item">
+          <span class="metric-strip-label">Observations</span>
+          <span class="metric-strip-value">{{ observation_count }}</span>
+        </div>
+        <div class="metric-strip-item">
+          <span class="metric-strip-label">Unresolved Conflicts</span>
+          <span class="metric-strip-value">{{ conflict_count }}</span>
+        </div>
+        <div class="metric-strip-item">
+          <span class="metric-strip-label">Last Updated</span>
+          <span class="metric-strip-value">{{ patient_state.created_at|timesince }} ago</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">No patient state snapshot available. Click "Refresh State" to generate one.</p>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid-2">
+    <!-- Critical Findings -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Critical Findings</h3></div>
+      <div class="card-body">
+        {% if patient_state and patient_state.critical_findings %}
+        <ul class="finding-list">
+          {% for finding in patient_state.critical_findings %}
+          <li class="finding-item finding-critical">{{ finding }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No critical findings.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Active Risks -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Active Risks</h3></div>
+      <div class="card-body">
+        {% if patient_state and patient_state.active_risks %}
+        <ul class="finding-list">
+          {% for risk in patient_state.active_risks %}
+          <li class="finding-item finding-warning">{{ risk }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No active risks identified.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Recent Changes -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Recent Changes</h3></div>
+      <div class="card-body">
+        {% if patient_state and patient_state.recent_changes %}
+        <ul class="finding-list">
+          {% for change in patient_state.recent_changes %}
+          <li class="finding-item finding-info">{{ change }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No recent changes detected.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Missing Information -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Missing Information</h3></div>
+      <div class="card-body">
+        {% if patient_state and patient_state.missing_information %}
+        <ul class="finding-list">
+          {% for item in patient_state.missing_information %}
+          <li class="finding-item finding-muted">{{ item }}</li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted">No missing information detected.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Conflicts -->
+  {% if recent_conflicts %}
+  <div class="card" style="margin-top: var(--sp-5);">
+    <div class="card-header"><h3 class="card-title">Recent Data Conflicts</h3></div>
+    <div class="card-body">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Type</th>
+            <th>Severity</th>
+            <th>Source 1</th>
+            <th>Source 2</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for conflict in recent_conflicts %}
+          <tr>
+            <td>{{ conflict.get_conflict_type_display }}</td>
+            <td><span class="badge badge-{{ conflict.severity }}">{{ conflict.get_severity_display }}</span></td>
+            <td>{{ conflict.first_source_label }}</td>
+            <td>{{ conflict.second_source_label }}</td>
+            <td><span class="badge badge-muted">{{ conflict.get_resolution_status_display }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+    This patient state is an automated aggregation of available data. It does not constitute a clinical assessment.
+    All findings require clinical validation by a qualified healthcare provider.
+  </p>
+</main>
+
+<style>
+  .priority-card { border-left: 4px solid var(--accent); }
+  .priority-urgent, .priority-emergency { border-left-color: var(--danger); }
+  .priority-review_today { border-left-color: var(--warning); }
+  .finding-list { list-style: none; padding: 0; margin: 0; }
+  .finding-item { padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); font-size: 0.875rem; }
+  .finding-item:last-child { border-bottom: none; }
+  .finding-critical::before { content: "⚠ "; color: var(--danger); font-weight: 600; }
+  .finding-warning::before { content: "● "; color: var(--warning); }
+  .finding-info::before { content: "→ "; color: var(--info); }
+  .finding-muted::before { content: "○ "; color: var(--text-muted); }
+  .badge { padding: var(--sp-1) var(--sp-2); border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
+  .badge-critical { background: #fee2e2; color: var(--danger); }
+  .badge-warning { background: #fef3c7; color: var(--warning); }
+  .badge-info { background: #dbeafe; color: var(--info); }
+  .badge-muted { background: var(--canvas); color: var(--text-muted); }
+</style>
+
+<script>
+function refreshPatientState() {
+  showLoading();
+  API.get('/patient-state/build/').then(data => {
+    hideLoading();
+    location.reload();
+  }).catch(() => {
+    hideLoading();
+    // Fallback: try via proxy
+    fetch('/ai/patient-state/build', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: {{ request.user.id }}})
+    }).then(r => r.json()).then(() => location.reload());
+  });
+}
+</script>
+{% endblock %}

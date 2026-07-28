@@ -148,13 +148,28 @@ def run_training(data_path: str, disease: str) -> dict:
     sample = x_train[: min(100, len(x_train))]
     explainer = make_shap_explainer(best_model, sample)
     shap_values = explainer(sample)
-    shap_abs = np.abs(shap_values.values).mean(axis=0)
-    top_indices = np.argsort(shap_abs)[-20:]
-    plt.figure(figsize=(9, 7))
-    plt.barh([feature_columns[i] for i in top_indices], shap_abs[top_indices])
-    plt.tight_layout()
-    plt.savefig(output_dir / "shap_feature_importance.png")
-    plt.close()
+    try:
+        sv = shap_values.values
+        # Handle multi-dimensional SHAP values (e.g. list for multi-class)
+        while isinstance(sv, list):
+            sv = sv[-1]
+        # If 3D (n_samples, n_features, n_classes), take the last class
+        if sv.ndim == 3:
+            sv = sv[:, :, -1]
+        shap_abs = np.abs(sv).mean(axis=0)
+        # shap_abs could be 2D if something went wrong; flatten
+        if isinstance(shap_abs, np.ndarray) and shap_abs.ndim > 1:
+            shap_abs = shap_abs.ravel()
+        top_indices = np.argsort(shap_abs)[- min(20, len(shap_abs)):]
+        plt.figure(figsize=(9, 7))
+        top_labels = [feature_columns[i] for i in top_indices]
+        plt.barh(top_labels, shap_abs[top_indices])
+        plt.tight_layout()
+        plt.savefig(output_dir / "shap_feature_importance.png")
+        plt.close()
+    except Exception as shap_err:
+        print(f"    SHAP plot skipped ({shap_err})")
+        plt.close()
 
     tracking_uri = os.environ.get("MLFLOW_TRACKING_URI")
     if tracking_uri:

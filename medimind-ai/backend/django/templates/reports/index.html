@@ -66,8 +66,8 @@ document.addEventListener("DOMContentLoaded", () => {
     {% if report.analysis_result and report.analysis_result != "{}" %}analyzed += 1;{% else %}pending += 1;{% endif %}
   {% endfor %}
   const total = analyzed + pending;
-  makeDoughnutChart(document.getElementById("reportTypeMix"), ["Blood", "Lab", "Imaging", "Other"], [typeCounts.blood, typeCounts.lab, typeCounts.imaging, typeCounts.other], ["#EF4444", "#3B82F6", "#8B5CF6", "#64748B"]);
-  makeBarChart(document.getElementById("reportStatus"), ["Analyzed", "Pending"], total ? [analyzed, pending] : [0, 1], ["#10B981", "#F59E0B"]);
+  makeDoughnutChart(document.getElementById("reportTypeMix"), ["Blood", "Lab", "Imaging", "Other"], [typeCounts.blood, typeCounts.lab, typeCounts.imaging, typeCounts.other], ["#9B2C2C", "#194D3A", "#1E40AF", "#90948B"]);
+  makeBarChart(document.getElementById("reportStatus"), ["Analyzed", "Pending"], total ? [analyzed, pending] : [0, 1], ["#194D3A", "#B45309"]);
 });
 </script>
 {% endblock %}

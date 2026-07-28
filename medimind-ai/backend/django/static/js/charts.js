@@ -1,15 +1,35 @@
+/*
+ * MediMind AI — Chart System
+ * Clinical green palette (#194D3A). No gradient fills.
+ * Canvas fallbacks use flat fills. Viridis/inferno for heatmaps.
+ */
+
 const chartPalette = {
-  accent: "#3B82F6",
-  accentLight: "#60A5FA",
-  success: "#22C55E",
-  warning: "#F59E0B",
-  danger: "#EF4444",
-  info: "#2563EB",
-  border: "#334155",
-  text: "#F8FAFC",
-  muted: "#94A3B8",
-  surface: "#111827"
+  accent: "#194D3A",
+  accentLight: "#2D7A5E",
+  success: "#194D3A",
+  warning: "#B45309",
+  danger: "#9B2C2C",
+  info: "#1E40AF",
+  border: "#E5E4E0",
+  text: "#151714",
+  muted: "#90948B",
+  surface: "#F4F3EF",
+  canvas: "#F4F3EF",
+  white: "#FFFFFF"
 };
+
+/* Viridis-inspired palette for heatmaps */
+const viridisPalette = [
+  "#440154", "#482878", "#3E4989", "#31688E", "#26828E",
+  "#1F9E89", "#35B779", "#6ECE58", "#B5DE2B", "#FDE725"
+];
+
+/* Inferno-inspired palette for heatmaps */
+const infernoPalette = [
+  "#000004", "#160B39", "#420A68", "#6A176E", "#932667",
+  "#BC3754", "#DD513A", "#F37819", "#FCA50A", "#F6D746"
+];
 
 function prepareCanvas(canvas) {
   if (!canvas) return null;
@@ -39,16 +59,16 @@ function drawFallbackEmpty(canvas, message = "No chart data yet") {
   const prepared = prepareCanvas(canvas);
   if (!prepared) return null;
   const { ctx, width, height } = prepared;
-  ctx.fillStyle = chartPalette.surface;
+  ctx.fillStyle = chartPalette.canvas;
   ctx.strokeStyle = chartPalette.border;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.roundRect(18, 18, width - 36, height - 36, 12);
+  ctx.roundRect(18, 18, width - 36, height - 36, 8);
   ctx.fill();
   ctx.stroke();
   ctx.fillStyle = chartPalette.muted;
   ctx.textAlign = "center";
-  ctx.font = "600 13px Inter, system-ui, sans-serif";
+  ctx.font = "500 13px Inter, system-ui, sans-serif";
   ctx.fillText(message, width / 2, height / 2);
   return { fallback: true };
 }
@@ -85,27 +105,25 @@ function drawLineFallback(canvas, labels, values) {
     return { x, y };
   });
 
-  const gradient = ctx.createLinearGradient(0, pad.top, 0, height - pad.bottom);
-  gradient.addColorStop(0, "rgba(30,136,229,0.22)");
-  gradient.addColorStop(1, "rgba(30,136,229,0)");
+  /* Flat area fill — no gradient */
   ctx.beginPath();
   points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
   ctx.lineTo(points[points.length - 1].x, height - pad.bottom);
   ctx.lineTo(points[0].x, height - pad.bottom);
   ctx.closePath();
-  ctx.fillStyle = gradient;
+  ctx.fillStyle = "rgba(25, 77, 58, 0.08)";
   ctx.fill();
 
   ctx.beginPath();
   points.forEach((point, index) => index ? ctx.lineTo(point.x, point.y) : ctx.moveTo(point.x, point.y));
   ctx.strokeStyle = chartPalette.accent;
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 2;
   ctx.stroke();
 
   points.forEach(point => {
     ctx.beginPath();
-    ctx.arc(point.x, point.y, 4, 0, Math.PI * 2);
-    ctx.fillStyle = "#FFFFFF";
+    ctx.arc(point.x, point.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = chartPalette.white;
     ctx.fill();
     ctx.strokeStyle = chartPalette.accent;
     ctx.lineWidth = 2;
@@ -145,13 +163,13 @@ function drawBarFallback(canvas, labels, values, colors, horizontal = false) {
       const barW = (value / max) * plotW;
       ctx.textAlign = "right";
       ctx.fillText((labels || [])[index] || "", pad.left - 12, y + rowH * .25 + 4);
-      ctx.fillStyle = chartPalette.surface;
+      ctx.fillStyle = chartPalette.canvas;
       ctx.beginPath();
-      ctx.roundRect(pad.left, y, plotW, rowH * .5, 8);
+      ctx.roundRect(pad.left, y, plotW, rowH * .5, 4);
       ctx.fill();
       ctx.fillStyle = palette[index % palette.length];
       ctx.beginPath();
-      ctx.roundRect(pad.left, y, Math.max(4, barW), rowH * .5, 8);
+      ctx.roundRect(pad.left, y, Math.max(4, barW), rowH * .5, 4);
       ctx.fill();
       ctx.fillStyle = chartPalette.text;
       ctx.textAlign = "left";
@@ -165,15 +183,15 @@ function drawBarFallback(canvas, labels, values, colors, horizontal = false) {
       const x = pad.left + index * (barW + gap);
       const barH = (value / max) * plotH;
       const y = pad.top + plotH - barH;
-      ctx.fillStyle = chartPalette.surface;
+      ctx.fillStyle = chartPalette.canvas;
       ctx.fillRect(pad.left, pad.top, plotW, plotH);
       ctx.fillStyle = palette[index % palette.length];
       ctx.beginPath();
-      ctx.roundRect(x, y, barW, Math.max(4, barH), 8);
+      ctx.roundRect(x, y, barW, Math.max(4, barH), 4);
       ctx.fill();
       ctx.fillStyle = chartPalette.text;
       ctx.textAlign = "center";
-      ctx.font = "700 12px Inter, system-ui, sans-serif";
+      ctx.font = "600 12px Inter, system-ui, sans-serif";
       ctx.fillText(`${Math.round(value)}`, x + barW / 2, y - 8);
       ctx.font = "12px Inter, system-ui, sans-serif";
       ctx.fillStyle = chartPalette.muted;
@@ -208,7 +226,7 @@ function drawDoughnutFallback(canvas, labels, values, colors) {
   });
   ctx.fillStyle = chartPalette.text;
   ctx.textAlign = "center";
-  ctx.font = "800 24px Inter, system-ui, sans-serif";
+  ctx.font = "700 24px Inter, system-ui, sans-serif";
   ctx.fillText(String(total), cx, cy + 6);
   ctx.font = "12px Inter, system-ui, sans-serif";
   ctx.fillStyle = chartPalette.muted;
@@ -275,7 +293,7 @@ function drawRadarFallback(canvas, labels, values) {
     index ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
   });
   ctx.closePath();
-  ctx.fillStyle = "rgba(30,136,229,0.16)";
+  ctx.fillStyle = "rgba(25, 77, 58, 0.1)";
   ctx.strokeStyle = chartPalette.accent;
   ctx.lineWidth = 2;
   ctx.fill();
@@ -288,8 +306,8 @@ function makeLineChart(canvas, labels, values) {
   if (!window.Chart) return drawLineFallback(canvas, labels, values);
   const ctx = canvas.getContext("2d");
   const gradient = ctx.createLinearGradient(0, 0, 0, 260);
-  gradient.addColorStop(0, "rgba(59,130,246,0.22)");
-  gradient.addColorStop(1, "rgba(59,130,246,0)");
+  gradient.addColorStop(0, "rgba(25, 77, 58, 0.12)");
+  gradient.addColorStop(1, "rgba(25, 77, 58, 0)");
   return new Chart(canvas, {
     type: "line",
     data: {
@@ -300,10 +318,10 @@ function makeLineChart(canvas, labels, values) {
         backgroundColor: gradient,
         fill: true,
         tension: 0.38,
-        pointRadius: 4,
+        pointRadius: 3,
         pointBackgroundColor: chartPalette.accent,
-        pointBorderColor: "#0F172A",
-        pointHoverRadius: 6
+        pointBorderColor: chartPalette.white,
+        pointHoverRadius: 5
       }]
     },
     options: {
@@ -312,17 +330,25 @@ function makeLineChart(canvas, labels, values) {
       plugins: {
         legend: { display: false },
         tooltip: {
-          backgroundColor: "#111827",
-          borderColor: "#334155",
-          borderWidth: 1,
-          titleColor: "#F8FAFC",
+          backgroundColor: chartPalette.text,
+          titleColor: chartPalette.white,
           bodyColor: "#CBD5E1",
-          cornerRadius: 10
+          borderColor: chartPalette.border,
+          borderWidth: 1,
+          cornerRadius: 6
         }
       },
       scales: {
-        y: { min: 0, max: 100, ticks: { color: chartPalette.muted }, grid: { color: "rgba(51,65,85,.62)" } },
-        x: { ticks: { color: chartPalette.muted }, grid: { display: false } }
+        y: {
+          min: 0,
+          max: 100,
+          ticks: { color: chartPalette.muted },
+          grid: { color: chartPalette.border }
+        },
+        x: {
+          ticks: { color: chartPalette.muted },
+          grid: { display: false }
+        }
       }
     }
   });
@@ -334,14 +360,14 @@ function makeHorizontalBarChart(canvas, labels, values, directions) {
   if (!window.Chart) return drawBarFallback(canvas, labels, values, colors, true);
   return new Chart(canvas, {
     type: "bar",
-    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 6 }] },
+    data: { labels, datasets: [{ data: values, backgroundColor: colors, borderRadius: 4 }] },
     options: {
       indexAxis: "y",
       responsive: true,
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        x: { beginAtZero: true, ticks: { color: chartPalette.muted }, grid: { color: "rgba(51,65,85,.62)" } },
+        x: { beginAtZero: true, ticks: { color: chartPalette.muted }, grid: { color: chartPalette.border } },
         y: { ticks: { color: chartPalette.muted }, grid: { display: false } }
       }
     }
@@ -358,8 +384,8 @@ function makeBarChart(canvas, labels, values, colors) {
       datasets: [{
         data: values,
         backgroundColor: colors || [chartPalette.accent, chartPalette.success, chartPalette.warning, chartPalette.info],
-        borderRadius: 8,
-        maxBarThickness: 46
+        borderRadius: 4,
+        maxBarThickness: 42
       }]
     },
     options: {
@@ -367,7 +393,7 @@ function makeBarChart(canvas, labels, values, colors) {
       maintainAspectRatio: false,
       plugins: { legend: { display: false } },
       scales: {
-        y: { beginAtZero: true, ticks: { color: chartPalette.muted }, grid: { color: "rgba(51,65,85,.62)" } },
+        y: { beginAtZero: true, ticks: { color: chartPalette.muted }, grid: { color: chartPalette.border } },
         x: { ticks: { color: chartPalette.muted }, grid: { display: false } }
       }
     }
@@ -384,9 +410,9 @@ function makeDoughnutChart(canvas, labels, values, colors) {
       datasets: [{
         data: values,
         backgroundColor: colors || [chartPalette.success, chartPalette.warning, chartPalette.danger, chartPalette.accent],
-        borderColor: "#FFFFFF",
-        borderWidth: 4,
-        hoverOffset: 6
+        borderColor: chartPalette.white,
+        borderWidth: 3,
+        hoverOffset: 4
       }]
     },
     options: {
@@ -413,10 +439,10 @@ function makeRadarChart(canvas, labels, values) {
       datasets: [{
         data: values,
         borderColor: chartPalette.accent,
-        backgroundColor: "rgba(59,130,246,0.16)",
+        backgroundColor: "rgba(25, 77, 58, 0.1)",
         pointBackgroundColor: chartPalette.accent,
-        pointBorderColor: "#FFFFFF",
-        pointRadius: 4,
+        pointBorderColor: chartPalette.white,
+        pointRadius: 3,
         borderWidth: 2
       }]
     },
@@ -429,8 +455,8 @@ function makeRadarChart(canvas, labels, values) {
           min: 0,
           max: 100,
           ticks: { display: false, stepSize: 20 },
-          grid: { color: "rgba(51,65,85,.7)" },
-          angleLines: { color: "rgba(51,65,85,.7)" },
+          grid: { color: chartPalette.border },
+          angleLines: { color: chartPalette.border },
           pointLabels: { color: chartPalette.text, font: { size: 12, weight: "600" } }
         }
       }

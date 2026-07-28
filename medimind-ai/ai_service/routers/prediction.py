@@ -99,6 +99,9 @@ def _shap_factors(bundle: dict, frame: pd.DataFrame, risk_percentage: float) -> 
             if isinstance(raw, list):
                 raw = raw[-1]
             values = np.asarray(raw)[0]
+            # Handle 3D SHAP values (n_samples, n_features, n_classes) → take positive class
+            if isinstance(values, np.ndarray) and values.ndim > 1:
+                values = values[:, -1] if values.ndim == 2 else values.ravel()
     except Exception:
         values = None
     if values is None:

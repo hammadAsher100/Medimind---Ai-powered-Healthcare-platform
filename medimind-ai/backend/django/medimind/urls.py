@@ -25,6 +25,14 @@ urlpatterns = [
     path("timeline/", page_views.timeline_page, name="timeline_page"),
     path("profile/", page_views.profile_page, name="profile_page"),
     path("admin-panel/mlops/", page_views.mlops_page, name="mlops_page"),
+    # Clinical intelligence pages
+    path("clinical/", page_views.clinical_dashboard_page, name="clinical_dashboard"),
+    path("medications/", page_views.medications_page, name="medications_page"),
+    path("medications/safety/", page_views.medication_safety_page, name="medication_safety_page"),
+    path("lab-trends/", page_views.lab_trends_page, name="lab_trends_page"),
+    path("counterfactual/", page_views.counterfactual_page, name="counterfactual_page"),
+    path("export/fhir/", page_views.fhir_export_page, name="fhir_export_page"),
+    path("reviews/", page_views.reviews_page, name="reviews_page"),
     path("admin/", admin.site.urls),
     path("api/auth/", include("authentication.urls")),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
@@ -34,6 +42,10 @@ urlpatterns = [
     path("api/timeline/", include("timeline.urls")),
     path("api/dashboard/", include("dashboard.urls")),
     path("api/", include("recommendations.urls")),
+    # Clinical intelligence API
+    path("api/clinical/", include("clinical.urls")),
+    path("api/medication/", include("medication.urls")),
+    path("api/reviews/", include("reviews.urls")),
     # Proxy AI service requests (used in local dev; nginx handles this in Docker)
     path("ai/<path:path>", ai_proxy.ai_proxy, name="ai_proxy"),
     path("ai/", ai_proxy.ai_proxy, name="ai_proxy_root"),

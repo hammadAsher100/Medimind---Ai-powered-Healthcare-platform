@@ -58,12 +58,11 @@
     align-self: flex-start;
   }
   .user-bubble {
-    background: linear-gradient(135deg, var(--accent), var(--accent-light));
-    color: var(--white);
+    background: var(--accent);
+    color: #FFFFFF;
     padding: 14px 18px;
     border-radius: 20px 20px 4px 20px;
     font-weight: 500;
-    box-shadow: 0 2px 8px rgba(30, 136, 229, 0.2);
   }
   .ai-bubble-wrap {
     display: flex;
@@ -75,8 +74,8 @@
     width: 36px;
     height: 36px;
     font-size: 14px;
-    background: linear-gradient(135deg, var(--accent), var(--primary-mid));
-    box-shadow: 0 2px 8px rgba(30, 136, 229, 0.25);
+    background: var(--accent);
+    color: #FFFFFF;
   }
   .ai-bubble {
     background: var(--surface-card);
@@ -84,7 +83,7 @@
     border-radius: 4px 20px 20px 20px;
     padding: 16px 18px;
     line-height: 1.65;
-    box-shadow: 0 1px 6px rgba(0,0,0,0.04);
+    /* flat — no shadow */
   }
   .ai-bubble p { margin: 0 0 10px; }
   .ai-bubble p:last-child { margin-bottom: 0; }

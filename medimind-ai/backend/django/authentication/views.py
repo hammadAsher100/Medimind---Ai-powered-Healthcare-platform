@@ -2,10 +2,19 @@ from django.contrib.auth import login as django_login
 from django.contrib.auth import logout as django_logout
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import LoginSerializer, RegisterSerializer, UserProfileSerializer
+
+
+class LoginThrottle(AnonRateThrottle):
+    rate = "10/hour"
+
+
+class RegisterThrottle(AnonRateThrottle):
+    rate = "5/hour"
 
 
 def _session_request(request):
@@ -22,6 +31,7 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
     serializer_class = RegisterSerializer
+    throttle_classes = [RegisterThrottle]
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -42,6 +52,7 @@ class RegisterView(generics.CreateAPIView):
 class LoginView(APIView):
     permission_classes = [permissions.AllowAny]
     authentication_classes = []
+    throttle_classes = [LoginThrottle]
 
     def post(self, request):
         serializer = LoginSerializer(data=request.data)

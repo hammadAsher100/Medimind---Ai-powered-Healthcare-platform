@@ -125,8 +125,10 @@ def extreme_aspect_bytes() -> bytes:
 @pytest.fixture(scope="module")
 def cnn_registry():
     """CNNModelRegistry instance with models loaded."""
+    # Save original DISABLE_OOD value before overriding
+    _ood_saved = os.environ.pop("DISABLE_OOD", None)
+    os.environ["DISABLE_OOD"] = "True"
     try:
-        os.environ.setdefault("DISABLE_OOD", "True")
         import sys
         sys.path.insert(0, str(PROJECT_ROOT / "ai_service"))
         from cnn.registry import CNNModelRegistry
@@ -134,4 +136,9 @@ def cnn_registry():
         registry.load_all()
     except Exception as exc:
         pytest.skip(f"Could not load CNN registry: {exc}")
+    finally:
+        # Restore original DISABLE_OOD value to avoid leaking into other tests
+        os.environ.pop("DISABLE_OOD", None)
+        if _ood_saved is not None:
+            os.environ["DISABLE_OOD"] = _ood_saved
     return registry

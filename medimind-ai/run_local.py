@@ -1,4 +1,5 @@
 import os
+import platform
 import socket
 import subprocess
 import sys
@@ -13,6 +14,21 @@ DJANGO_DIR = ROOT / "backend" / "django"
 FASTAPI_DIR = ROOT / "ai_service"
 DJANGO_URL = "http://127.0.0.1:8000/login/"
 FASTAPI_URL = "http://127.0.0.1:8001/health"
+
+
+def _find_venv_python() -> str:
+    """Locate the project's .venv Python interpreter."""
+    if platform.system() == "Windows":
+        candidate = ROOT / ".venv" / "Scripts" / "python.exe"
+    else:
+        candidate = ROOT / ".venv" / "bin" / "python"
+    if candidate.exists():
+        return str(candidate)
+    # Fallback: use whatever Python is running this script
+    return sys.executable
+
+
+VENV_PYTHON = _find_venv_python()
 
 
 def local_env() -> dict[str, str]:
@@ -37,7 +53,7 @@ def local_env() -> dict[str, str]:
     env["DJANGO_URL"] = "http://127.0.0.1:8000"
     env.setdefault("DISABLE_QDRANT", "true")
     env.setdefault("DISABLE_LLM", "false")
-    env.setdefault("DISABLE_ML", "true")
+    env.setdefault("DISABLE_ML", "false")
     env["DISABLE_MLFLOW"] = "true"
     env.setdefault("PYTHONUNBUFFERED", "1")
     return env
@@ -134,7 +150,7 @@ if not TimelineEvent.objects.filter(user=user).exists():
     )
 print("Preview account ready: username=hammad password=MediMind@12345")
 """
-    run_checked([sys.executable, "manage.py", "shell", "-c", script], DJANGO_DIR, env)
+    run_checked([VENV_PYTHON, "manage.py", "shell", "-c", script], DJANGO_DIR, env)
 
 
 def start_process(name: str, args: list[str], cwd: Path, env: dict[str, str]) -> subprocess.Popen | None:
@@ -149,16 +165,17 @@ def start_process(name: str, args: list[str], cwd: Path, env: dict[str, str]) ->
 def main() -> int:
     env = local_env()
     print("MediMind AI local preview")
+    print(f"Python: {VENV_PYTHON}")
     print("Using SQLite, local preview AI responses, and no Docker.")
     print()
 
-    run_checked([sys.executable, "manage.py", "migrate"], DJANGO_DIR, env)
+    run_checked([VENV_PYTHON, "manage.py", "migrate"], DJANGO_DIR, env)
     seed_preview_account(env)
 
     processes: list[subprocess.Popen] = []
     fastapi = start_process(
         "FastAPI",
-        [sys.executable, "-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", "8001"],
+        [VENV_PYTHON, "-m", "uvicorn", "app:app", "--host", "127.0.0.1", "--port", "8001"],
         FASTAPI_DIR,
         env,
     )
@@ -167,7 +184,7 @@ def main() -> int:
 
     django = start_process(
         "Django",
-        [sys.executable, "manage.py", "runserver", "127.0.0.1:8000", "--noreload"],
+        [VENV_PYTHON, "manage.py", "runserver", "127.0.0.1:8000", "--noreload"],
         DJANGO_DIR,
         env,
     )

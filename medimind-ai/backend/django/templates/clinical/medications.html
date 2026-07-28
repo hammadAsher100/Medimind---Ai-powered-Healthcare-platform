@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | MediMind AI{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <header class="page-header">
+    <div class="page-header-row">
+      <div>
+        <h1 class="page-title">Medications</h1>
+        <p class="page-subtitle">Your medication list and safety alerts</p>
+      </div>
+      <div class="page-actions">
+        <a href="{% url 'medication_safety_page' %}" class="btn btn-sm btn-primary">Safety Check</a>
+      </div>
+    </div>
+  </header>
+
+  {% if alerts %}
+  <div class="card" style="margin-bottom: var(--sp-4); border-left: 4px solid var(--danger);">
+    <div class="card-header"><h3 class="card-title">Safety Alerts ({{ alerts.count }})</h3></div>
+    <div class="card-body">
+      {% for alert in alerts %}
+      <div class="finding-item finding-{{ alert.severity }}">
+        <strong>{{ alert.title }}</strong>
+        <span class="badge badge-{{ alert.severity }}">{{ alert.get_severity_display }}</span>
+        <p class="text-muted">{{ alert.description }}</p>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="grid-2">
+    <!-- Active Medications -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Active Medications</h3></div>
+      <div class="card-body">
+        {% if medications %}
+        <table class="data-table">
+          <thead>
+            <tr><th>Name</th><th>Dosage</th><th>Frequency</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            {% for med in medications %}
+            <tr>
+              <td><strong>{{ med.medication.name }}</strong></td>
+              <td>{{ med.dosage|default:"—" }}</td>
+              <td>{{ med.frequency|default:"—" }}</td>
+              <td><span class="badge badge-{{ med.status }}">{{ med.get_status_display }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No medications recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Allergies -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Known Allergies</h3></div>
+      <div class="card-body">
+        {% if allergies %}
+        <table class="data-table">
+          <thead>
+            <tr><th>Allergen</th><th>Severity</th></tr>
+          </thead>
+          <tbody>
+            {% for allergy in allergies %}
+            <tr>
+              <td><strong>{{ allergy.allergen }}</strong></td>
+              <td><span class="badge badge-{{ allergy.severity }}">{{ allergy.get_severity_display }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No allergies recorded.</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+    Medication information is for reference only. Always verify with a pharmacist or physician before making changes.
+  </p>
+</main>
+
+<style>
+  .badge-active { background: #d1fae5; color: var(--accent); }
+  .badge-discontinued { background: var(--canvas); color: var(--text-muted); }
+  .badge-on_hold { background: #fef3c7; color: var(--warning); }
+  .badge-unknown { background: var(--canvas); color: var(--text-muted); }
+  .badge-mild { background: #dbeafe; color: var(--info); }
+  .badge-moderate { background: #fef3c7; color: var(--warning); }
+  .badge-severe { background: #fee2e2; color: var(--danger); }
+  .badge-life_threatening { background: #fee2e2; color: var(--danger); font-weight: 600; }
+  .finding-item { padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); }
+  .finding-item:last-child { border-bottom: none; }
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th, .data-table td { padding: var(--sp-2) var(--sp-3); text-align: left; border-bottom: 1px solid var(--border); }
+  .data-table th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+</style>
+{% endblock %}
