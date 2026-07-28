@@ -11,72 +11,69 @@
 
 <section class="grid grid-4">
   <article class="card stat-card">
-    <span class="stat-icon">◌</span>
+    <span class="stat-icon" aria-hidden="true">◌</span>
     <p class="stat-label">Health Score</p>
-    <p class="stat-value">{% if latest_score %}{{ latest_score.score }} / 100{% else %}-- / 100{% endif %}</p>
+    <p class="stat-value">{% if latest_score %}{{ latest_score.score }} / 100{% else %}— / 100{% endif %}</p>
     <p class="stat-note">{% if latest_score %}Updated {{ latest_score.created_at|timesince }} ago{% else %}Not calculated yet{% endif %}</p>
   </article>
   <article class="card stat-card">
-    <span class="stat-icon">▤</span>
+    <span class="stat-icon" aria-hidden="true">▤</span>
     <p class="stat-label">Reports</p>
     <p class="stat-value">{{ reports_count }}</p>
     <p class="stat-note">Medical reports uploaded</p>
   </article>
   <article class="card stat-card">
-    <span class="stat-icon">▣</span>
+    <span class="stat-icon" aria-hidden="true">▣</span>
     <p class="stat-label">Predictions</p>
     <p class="stat-value">{{ predictions_count }}</p>
     <p class="stat-note">Risk assessments run</p>
   </article>
   <article class="card stat-card">
-    <span class="stat-icon">◎</span>
+    <span class="stat-icon" aria-hidden="true">◎</span>
     <p class="stat-label">Overall Risk</p>
-    {% with high_count=0 %}
-    <p class="stat-value" style="font-size:24px;">
+    <p class="stat-value stat-value--text">
       {% if predictions_count == 0 %}No Data
       {% elif latest_score and latest_score.score >= 85 %}Low
       {% elif latest_score and latest_score.score >= 70 %}Moderate
       {% else %}Needs Review
       {% endif %}
     </p>
-    {% endwith %}
-    <p class="stat-note"><a href="{% url 'predictions_page' %}" style="color:var(--accent);">View details →</a></p>
+    <p class="stat-note"><a href="{% url 'predictions_page' %}">View details →</a></p>
   </article>
 </section>
 
-<section class="metric-strip" style="margin-top:24px;">
+<section class="metric-strip section-gap">
   <article class="metric-tile">
     <span>BMI</span>
-    <strong>{% if latest_score and latest_score.bmi %}{{ latest_score.bmi }}{% else %}--{% endif %}</strong>
+    <strong>{% if latest_score and latest_score.bmi %}{{ latest_score.bmi }}{% else %}—{% endif %}</strong>
     <small>{% if latest_score and latest_score.bmi >= 18.5 and latest_score.bmi <= 24.9 %}Healthy range{% else %}Needs context{% endif %}</small>
   </article>
   <article class="metric-tile">
     <span>Glucose</span>
-    <strong>{% if latest_score and latest_score.sugar_level %}{{ latest_score.sugar_level }}{% else %}--{% endif %}</strong>
+    <strong>{% if latest_score and latest_score.sugar_level %}{{ latest_score.sugar_level }}{% else %}—{% endif %}</strong>
     <small>mg/dL fasting marker</small>
   </article>
   <article class="metric-tile">
     <span>Cholesterol</span>
-    <strong>{% if latest_score and latest_score.cholesterol %}{{ latest_score.cholesterol }}{% else %}--{% endif %}</strong>
+    <strong>{% if latest_score and latest_score.cholesterol %}{{ latest_score.cholesterol }}{% else %}—{% endif %}</strong>
     <small>mg/dL lipid marker</small>
   </article>
   <article class="metric-tile">
     <span>Blood Pressure</span>
-    <strong>{% if latest_score and latest_score.blood_pressure_systolic %}{{ latest_score.blood_pressure_systolic }}/{{ latest_score.blood_pressure_diastolic }}{% else %}--/--{% endif %}</strong>
+    <strong>{% if latest_score and latest_score.blood_pressure_systolic %}{{ latest_score.blood_pressure_systolic }}/{{ latest_score.blood_pressure_diastolic }}{% else %}—/—{% endif %}</strong>
     <small>mmHg current reading</small>
   </article>
 </section>
 
-<section class="analytics-grid" style="margin-top:24px;">
+<section class="analytics-grid section-gap">
   <article class="card chart-panel">
     <div class="chart-panel-header">
       <div>
         <h3 class="card-title">Health Score Trend</h3>
         <p class="chart-kicker">Longitudinal view of your latest score history.</p>
       </div>
-      <span class="badge badge-info">Chart</span>
     </div>
-    <div class="chart-wrap"><canvas id="healthTrend"></canvas></div>
+    <div class="chart-wrap"><canvas id="healthTrend" aria-label="Health score trend chart" role="img"></canvas></div>
   </article>
   <article class="card chart-panel">
     <div class="chart-panel-header">
@@ -85,11 +82,11 @@
         <p class="chart-kicker">Latest assessment distribution by risk level.</p>
       </div>
     </div>
-    <div class="chart-wrap small"><canvas id="riskMix"></canvas></div>
+    <div class="chart-wrap small"><canvas id="riskMix" aria-label="Risk distribution chart" role="img"></canvas></div>
   </article>
 </section>
 
-<section class="grid grid-2" style="margin-top:24px;">
+<section class="grid grid-2 section-gap">
   <article class="card chart-panel compact">
     <div class="chart-panel-header">
       <div>
@@ -97,7 +94,7 @@
         <p class="chart-kicker">Normalized view of score, BMI, glucose, cholesterol, and BP.</p>
       </div>
     </div>
-    <div class="chart-wrap small"><canvas id="vitalsRadar"></canvas></div>
+    <div class="chart-wrap small"><canvas id="vitalsRadar" aria-label="Vitals radar chart" role="img"></canvas></div>
   </article>
   <article class="card chart-panel compact">
     <div class="chart-panel-header">
@@ -106,11 +103,11 @@
         <p class="chart-kicker">Current readings compared on a compact chart.</p>
       </div>
     </div>
-    <div class="chart-wrap small"><canvas id="labBars"></canvas></div>
+    <div class="chart-wrap small"><canvas id="labBars" aria-label="Clinical marker bar chart" role="img"></canvas></div>
   </article>
 </section>
 
-<section class="card" style="margin-top:24px;">
+<section class="card section-gap">
   <div class="chart-panel-header">
     <div>
       <h3 class="card-title">Latest Risk Levels</h3>
@@ -140,7 +137,7 @@
   {% endfor %}
 </section>
 
-<section class="grid grid-2" style="margin-top:24px;">
+<section class="grid grid-2 section-gap">
   <article class="card">
     <h3 class="card-title">Recent Reports</h3>
     {% if reports %}
@@ -199,28 +196,28 @@
   </article>
 </section>
 
-<section class="card" style="margin-top:24px;">
+<section class="card section-gap">
   <h3 class="card-title">AI Health Recommendations</h3>
   <div class="grid grid-3">
     {% for rec in recommendations %}
       <article class="card">
-        <span class="stat-icon" style="position:static;">◍</span>
+        <span class="stat-icon" aria-hidden="true">◍</span>
         <h4>{{ rec.category|title }}</h4>
         <p>{{ rec.content|truncatewords:30 }}</p>
       </article>
     {% empty %}
       <article class="card">
-        <span class="stat-icon" style="position:static;">▦</span>
+        <span class="stat-icon" aria-hidden="true">▦</span>
         <h4>Review your risk assessments</h4>
         <p>Run disease risk predictions regularly to monitor trends and receive personalized recommendations.</p>
       </article>
       <article class="card">
-        <span class="stat-icon" style="position:static;">◌</span>
+        <span class="stat-icon" aria-hidden="true">◌</span>
         <h4>Upload medical reports</h4>
         <p>Upload blood tests and lab reports for AI analysis and plain-English explanations of your values.</p>
       </article>
       <article class="card">
-        <span class="stat-icon" style="position:static;">◍</span>
+        <span class="stat-icon" aria-hidden="true">◍</span>
         <h4>Ask the AI assistant</h4>
         <p>Use the medical assistant for symptom education, nutrition planning, and lifestyle guidance.</p>
       </article>
@@ -259,7 +256,7 @@ document.addEventListener("DOMContentLoaded", () => {
     Math.max(0, 100 - Math.max(0, parseFloat(systolic) - 115) * 1.4)
   ];
   makeRadarChart(document.getElementById("vitalsRadar"), ["Score", "BMI", "Glucose", "Lipids", "BP"], radarValues);
-  makeBarChart(document.getElementById("labBars"), ["BMI", "Glucose", "Chol.", "Systolic"], [bmi, glucose, cholesterol, systolic], ["#194D3A", "#2D7A5E", "#B45309", "#1E40AF"]);
+  makeBarChart(document.getElementById("labBars"), ["BMI", "Glucose", "Chol.", "Systolic"], [bmi, glucose, cholesterol, systolic], ["#194D3A", "#2D7A5E", "#B45309", "#2D7A5E"]);
 });
 </script>
 {% endblock %}

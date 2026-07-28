@@ -4,8 +4,7 @@
 {% block title %}{{ page_title }} | MediMind AI{% endblock %}
 
 {% block content %}
-<main class="main-content">
-  <header class="page-header">
+<header class="page-header">
     <div class="page-header-row">
       <div>
         <h1 class="page-title">Clinical Intelligence</h1>
@@ -118,7 +117,7 @@
 
   <!-- Data Conflicts -->
   {% if recent_conflicts %}
-  <div class="card" style="margin-top: var(--sp-5);">
+  <div class="card section-gap">
     <div class="card-header"><h3 class="card-title">Recent Data Conflicts</h3></div>
     <div class="card-body">
       <table class="data-table">
@@ -147,11 +146,10 @@
   </div>
   {% endif %}
 
-  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+  <p class="clinical-disclaimer section-gap">
     This patient state is an automated aggregation of available data. It does not constitute a clinical assessment.
     All findings require clinical validation by a qualified healthcare provider.
   </p>
-</main>
 
 <style>
   .priority-card { border-left: 4px solid var(--accent); }
@@ -167,7 +165,7 @@
   .badge { padding: var(--sp-1) var(--sp-2); border-radius: 4px; font-size: 0.75rem; font-weight: 500; }
   .badge-critical { background: #fee2e2; color: var(--danger); }
   .badge-warning { background: #fef3c7; color: var(--warning); }
-  .badge-info { background: #dbeafe; color: var(--info); }
+  .badge-info { background: var(--info-soft); color: var(--info); }
   .badge-muted { background: var(--canvas); color: var(--text-muted); }
 </style>
 

@@ -4,8 +4,7 @@
 {% block title %}{{ page_title }} | MediMind AI{% endblock %}
 
 {% block content %}
-<main class="main-content">
-  <header class="page-header">
+<header class="page-header">
     <h1 class="page-title">Reviews & Feedback</h1>
     <p class="page-subtitle">Clinician review decisions and model feedback tracking</p>
   </header>
@@ -106,7 +105,7 @@
   </div>
 
   <!-- Manual Feedback Form -->
-  <div class="card" style="margin-top: var(--sp-5);">
+  <div class="card section-gap">
     <div class="card-header"><h3 class="card-title">Submit Feedback</h3></div>
     <div class="card-body">
       <form id="feedback-form" class="grid-2">
@@ -133,10 +132,9 @@
     </div>
   </div>
 
-  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+  <p class="clinical-disclaimer section-gap">
     Your feedback helps improve AI model accuracy. All feedback is reviewed regularly for model retraining.
   </p>
-</main>
 
 <style>
   .data-table { width: 100%; border-collapse: collapse; }

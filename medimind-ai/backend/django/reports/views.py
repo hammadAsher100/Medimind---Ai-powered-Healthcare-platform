@@ -1,3 +1,7 @@
+import imghdr
+import logging
+import os
+
 import requests
 from django.conf import settings
 from rest_framework import generics, status
@@ -9,6 +13,33 @@ from timeline.services import create_timeline_event
 
 from .models import MedicalReport
 from .serializers import MedicalReportSerializer
+
+logger = logging.getLogger(__name__)
+
+ALLOWED_FILE_EXTENSIONS = {".pdf"}
+ALLOWED_MIME_TYPES = {"application/pdf"}
+MAX_FILE_SIZE = 20 * 1024 * 1024  # 20 MB
+
+
+def _validate_uploaded_file(file_obj):
+    """Validate uploaded file for safety and type."""
+    if file_obj.size > MAX_FILE_SIZE:
+        raise ValueError(f"File exceeds maximum size of {MAX_FILE_SIZE // (1024*1024)} MB.")
+
+    ext = os.path.splitext(file_obj.name)[1].lower()
+    if ext not in ALLOWED_FILE_EXTENSIONS:
+        raise ValueError(f"File type '{ext}' is not supported. Only PDF files are allowed.")
+
+    # Read file magic bytes for signature validation
+    file_obj.seek(0)
+    header = file_obj.read(8)
+    file_obj.seek(0)
+
+    # PDF magic bytes: %PDF (0x25 0x50 0x44 0x46)
+    if not header.startswith(b"%PDF"):
+        raise ValueError("File does not appear to be a valid PDF document.")
+
+    return True
 
 
 def _safe_float(value):
@@ -33,6 +64,16 @@ class ReportUploadView(generics.CreateAPIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def create(self, request, *args, **kwargs):
+        if "file" not in request.data:
+            return Response({"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        # Validate file before processing
+        file_obj = request.data["file"]
+        try:
+            _validate_uploaded_file(file_obj)
+        except ValueError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         report = serializer.save(user=request.user)
@@ -55,7 +96,10 @@ class ReportUploadView(generics.CreateAPIView):
             create_timeline_event(request.user, "report_uploaded", "Report uploaded", report.summary, {"report_id": report.id})
             return Response(MedicalReportSerializer(report).data, status=status.HTTP_202_ACCEPTED)
         finally:
-            report.file.close()
+            try:
+                report.file.close()
+            except Exception:
+                pass
 
         report.extracted_text = analysis.get("extracted_text", "")
         report.analysis_result = analysis.get("analysis", analysis)

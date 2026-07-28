@@ -4,14 +4,13 @@
 {% block title %}{{ page_title }} | MediMind AI{% endblock %}
 
 {% block content %}
-<main class="main-content">
-  <header class="page-header">
+<header class="page-header">
     <h1 class="page-title">Medication Safety Passport</h1>
     <p class="page-subtitle">Drug interaction checks, allergy screening, and safety alerts</p>
   </header>
 
   <!-- Run Safety Check -->
-  <div class="card" style="margin-bottom: var(--sp-5);">
+  <div class="card section-gap">
     <div class="card-body">
       <button class="btn btn-primary" onclick="runSafetyCheck()">Run Full Safety Check</button>
       <span class="text-muted" style="margin-left: var(--sp-3);">Checks interactions, allergies, and duplicate therapies</span>
@@ -22,7 +21,7 @@
   <div id="safety-results" style="display: none;"></div>
 
   <!-- Active Medications -->
-  <div class="card" style="margin-bottom: var(--sp-4);">
+  <div class="card section-gap">
     <div class="card-header"><h3 class="card-title">Active Medications</h3></div>
     <div class="card-body">
       {% if medications %}
@@ -54,7 +53,7 @@
 
   <!-- Allergies -->
   {% if allergies %}
-  <div class="card" style="margin-bottom: var(--sp-4);">
+  <div class="card section-gap">
     <div class="card-header"><h3 class="card-title">Known Allergies</h3></div>
     <div class="card-body">
       <table class="data-table">
@@ -92,10 +91,9 @@
   </div>
   {% endif %}
 
-  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+  <p class="clinical-disclaimer section-gap">
     This is an automated safety screening. It does not replace professional pharmacist or physician review. Always consult a qualified healthcare provider before making medication decisions.
   </p>
-</main>
 
 <style>
   .finding-item { padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); }

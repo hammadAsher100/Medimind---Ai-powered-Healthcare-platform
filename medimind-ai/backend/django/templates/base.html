@@ -91,9 +91,9 @@
               <span>{% if request.user.is_staff %}Admin Account{% else %}Patient Account{% endif %}</span>
             </div>
             <a href="{% url 'profile_page' %}">My Profile</a>
-            <form method="post" action="{% url 'logout_page' %}" style="display:block; padding:var(--sp-3);">
+            <form method="post" action="{% url 'logout_page' %}" class="logout-form">
               {% csrf_token %}
-              <button type="submit" style="background:none; border:none; display:block; width:100%; padding:0; color:var(--text-secondary); font-size:var(--text-sm); font-weight:500; text-align:left; cursor:pointer;">Sign Out</button>
+              <button type="submit" class="logout-button">Sign Out</button>
             </form>
           </div>
         </div>
