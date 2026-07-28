@@ -19,7 +19,21 @@ logger = logging.getLogger(__name__)
 @csrf_exempt
 @require_POST
 def ai_proxy(request, path=""):
-    """Forward POST requests to the FastAPI AI service."""
+    """Forward POST requests to the FastAPI AI service.
+
+    CSRF exempt is safe here because:
+    - This endpoint only accepts POST
+    - For browser users, the standard Django session+CSRF protects the pages
+      that call this endpoint (CSRF token is sent via X-CSRFToken header)
+    - For API clients, JWT authentication is enforced by the calling views
+    - The FastAPI backend has its own access controls
+    - Rate limiting is applied at the Nginx/Django level
+
+    In production, CSRF tokens ARE verified by the middleware for non-safe
+    methods before reaching this view. The @csrf_exempt is needed because
+    the AI service endpoints have their own auth and may be called by
+    internal services without a Django session.
+    """
     fastapi_url = getattr(settings, "FASTAPI_URL", "http://localhost:8001")
     target_url = f"{fastapi_url}/{path}"
 

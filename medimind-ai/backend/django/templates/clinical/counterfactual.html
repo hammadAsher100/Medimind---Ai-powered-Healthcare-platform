@@ -1,0 +1,260 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | MediMind AI{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <header class="page-header">
+    <h1 class="page-title">Health Simulator</h1>
+    <p class="page-subtitle">Counterfactual "what if" scenario modeling</p>
+  </header>
+
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">
+        This simulator shows how changes in health factors <em>could</em> affect your disease risk scores.
+        It uses simplified models based on published research — results are educational approximations, not clinical predictions.
+      </p>
+    </div>
+  </div>
+
+  <div class="grid-2" style="margin-top: var(--sp-5);">
+    <!-- Starting Risks -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">Current Risk Profile</h3></div>
+      <div class="card-body">
+        {% if latest_predictions %}
+        <table class="data-table">
+          <thead>
+            <tr><th>Disease</th><th>Risk</th><th>Level</th></tr>
+          </thead>
+          <tbody>
+            {% for disease, pred in latest_predictions.items %}
+            <tr>
+              <td><strong>{{ disease|title }}</strong></td>
+              <td>{{ pred.risk_percentage|floatformat:1 }}%</td>
+              <td><span class="badge badge-{{ pred.risk_level }}">{{ pred.risk_level|default:"—" }}</span></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <p class="text-muted">No risk assessments yet. <a href="{% url 'predictions_page' %}">Run a prediction</a> first.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Modifications -->
+    <div class="card">
+      <div class="card-header"><h3 class="card-title">What If...</h3></div>
+      <div class="card-body">
+        <form id="sim-form">
+          <div class="form-group">
+            <label class="form-label">Change</label>
+            <select class="form-control" id="mod-factor">
+              <option value="smoking">Smoking Status</option>
+              <option value="exercise">Exercise</option>
+              <option value="glucose">Blood Glucose</option>
+              <option value="bmi">BMI</option>
+              <option value="cholesterol">Total Cholesterol</option>
+              <option value="blood_pressure">Blood Pressure (Systolic)</option>
+            </select>
+          </div>
+          <div class="form-group" id="change-type-group">
+            <label class="form-label">Action</label>
+            <select class="form-control" id="mod-change">
+              <option value="quit">Quit smoking</option>
+              <option value="start">Start smoking</option>
+            </select>
+          </div>
+          <div class="grid-2" id="value-inputs" style="display: none;">
+            <div class="form-group">
+              <label class="form-label">Current value</label>
+              <input class="form-control" type="number" id="current-val" step="0.1">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Target value</label>
+              <input class="form-control" type="number" id="target-val" step="0.1">
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary" onclick="addModification()">Add Change</button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modifications List -->
+  <div class="card" style="margin-top: var(--sp-4);">
+    <div class="card-header"><h3 class="card-title">Changes to Simulate</h3></div>
+    <div class="card-body">
+      <ul id="mod-list" style="list-style: none; padding: 0;">
+        <li class="text-muted">Add changes above, then click Simulate.</li>
+      </ul>
+      <button class="btn btn-primary" style="margin-top: var(--sp-4);" onclick="runSimulation()">Run Simulation</button>
+    </div>
+  </div>
+
+  <!-- Results -->
+  <div id="sim-results" style="display: none; margin-top: var(--sp-4);"></div>
+
+  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+    This is a simplified educational simulation. Actual health outcomes depend on many complex factors not captured here. Always consult a healthcare provider for medical decisions.
+  </p>
+</main>
+
+<style>
+  .data-table { width: 100%; border-collapse: collapse; }
+  .data-table th, .data-table td { padding: var(--sp-2) var(--sp-3); text-align: left; border-bottom: 1px solid var(--border); }
+  .data-table th { font-weight: 600; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+  .badge-high { background: #fee2e2; color: var(--danger); }
+  .badge-moderate { background: #fef3c7; color: var(--warning); }
+  .badge-low { background: #d1fae5; color: var(--accent); }
+</style>
+
+<script>
+let modifications = [];
+
+document.getElementById('mod-factor').addEventListener('change', function() {
+  const factor = this.value;
+  const changeSelect = document.getElementById('mod-change');
+  const valueInputs = document.getElementById('value-inputs');
+  const changeTypes = document.getElementById('change-type-group');
+
+  if (['smoking', 'exercise'].includes(factor)) {
+    changeTypes.style.display = 'block';
+    valueInputs.style.display = 'none';
+    if (factor === 'smoking') {
+      changeSelect.innerHTML = '<option value="quit">Quit smoking</option><option value="start">Start smoking</option>';
+    } else {
+      changeSelect.innerHTML = '<option value="add_30min_weekly">Add 30min exercise/week</option><option value="remove_30min_weekly">Remove 30min exercise/week</option>';
+    }
+  } else {
+    changeTypes.style.display = 'none';
+    valueInputs.style.display = 'block';
+  }
+});
+
+function addModification() {
+  const factor = document.getElementById('mod-factor').value;
+  const change = document.getElementById('mod-change').value;
+  const currentVal = document.getElementById('current-val').value;
+  const targetVal = document.getElementById('target-val').value;
+
+  const mod = { factor, change };
+  if (['glucose', 'bmi', 'cholesterol', 'blood_pressure'].includes(factor)) {
+    if (!currentVal || !targetVal) {
+      alert('Enter both current and target values.');
+      return;
+    }
+    mod.current = parseFloat(currentVal);
+    mod.target = parseFloat(targetVal);
+  }
+
+  modifications.push(mod);
+  renderModList();
+}
+
+function renderModList() {
+  const list = document.getElementById('mod-list');
+  if (modifications.length === 0) {
+    list.innerHTML = '<li class="text-muted">Add changes above.</li>';
+    return;
+  }
+  list.innerHTML = modifications.map((m, i) =>
+    `<li style="padding: var(--sp-1) 0;">
+      ${m.factor}: ${m.change}${m.current ? ` (${m.current} → ${m.target})` : ''}
+      <button onclick="removeMod(${i})" style="background: none; border: none; color: var(--danger); cursor: pointer; font-size: 0.8rem;">✕</button>
+    </li>`
+  ).join('');
+}
+
+function removeMod(i) {
+  modifications.splice(i, 1);
+  renderModList();
+}
+
+function runSimulation() {
+  // Build original risk from the page data
+  const rows = document.querySelectorAll('.data-table tbody tr');
+  const originalRisk = {};
+  rows.forEach(row => {
+    const cells = row.querySelectorAll('td');
+    if (cells.length >= 2) {
+      const disease = cells[0].textContent.trim().toLowerCase();
+      const risk = parseFloat(cells[1].textContent);
+      if (!isNaN(risk)) originalRisk[disease] = risk;
+    }
+  });
+
+  if (Object.keys(originalRisk).length === 0) {
+    alert('No risk data available. Run predictions first.');
+    return;
+  }
+
+  if (modifications.length === 0) {
+    alert('Add at least one change to simulate.');
+    return;
+  }
+
+  showLoading();
+  const resultEl = document.getElementById('sim-results');
+
+  fetch('/ai/counterfactual/simulate', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      user_id: {{ request.user.id }},
+      original_risk: originalRisk,
+      modifications: modifications,
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    hideLoading();
+    resultEl.style.display = 'block';
+
+    let diseaseRows = '';
+    Object.entries(data.original_risk).forEach(([disease, origRisk]) => {
+      const modRisk = data.modified_risk[disease] ?? origRisk;
+      const delta = data.risk_deltas[disease] ?? 0;
+      const deltaClass = delta > 0 ? 'delta-bad' : delta < -1 ? 'delta-good' : 'delta-neutral';
+      diseaseRows += `
+        <tr>
+          <td><strong>${disease}</strong></td>
+          <td>${origRisk.toFixed(1)}%</td>
+          <td>${modRisk.toFixed(1)}%</td>
+          <td class="${deltaClass}">${delta > 0 ? '+' : ''}${delta.toFixed(1)}%</td>
+        </tr>`;
+    });
+
+    let changeList = data.changes_applied.map(c =>
+      `<li>${c.factor}: ${c.change} → ${c.disease} ${c.delta > 0 ? '+' : ''}${c.delta}%</li>`
+    ).join('');
+
+    let recs = (data.recommendations || []).map(r => `<li>${r}</li>`).join('');
+
+    resultEl.innerHTML = `
+      <div class="card">
+        <div class="card-header"><h3 class="card-title">Simulation Results</h3></div>
+        <div class="card-body">
+          <table class="data-table" style="margin-bottom:var(--sp-4)">
+            <thead><tr><th>Disease</th><th>Current Risk</th><th>Simulated Risk</th><th>Change</th></tr></thead>
+            <tbody>${diseaseRows}</tbody>
+          </table>
+          <h4>Changes Applied</h4>
+          <ul>${changeList}</ul>
+          <h4 style="margin-top:var(--sp-3)">Recommendations</h4>
+          <ul>${recs}</ul>
+          <p class="clinical-disclaimer" style="margin-top:var(--sp-3)">${data.disclaimer || ''}</p>
+        </div>
+      </div>`;
+  })
+  .catch(err => {
+    hideLoading();
+    resultEl.style.display = 'block';
+    resultEl.innerHTML = '<div class="card"><div class="card-body"><p class="text-danger">Error running simulation. Server may be unavailable.</p></div></div>';
+  });
+}
+</script>
+{% endblock %}

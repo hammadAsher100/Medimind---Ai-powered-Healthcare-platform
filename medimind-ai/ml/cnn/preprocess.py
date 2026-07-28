@@ -27,7 +27,7 @@ import numpy as np
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, load_img
 
 IMAGE_SIZE: Tuple[int, int] = (224, 224)
-BATCH_SIZE: int = 32
+BATCH_SIZE: int = 8
 RAW_DATA_DIR = os.getenv("CNN_RAW_DATA", "data/raw/xray")
 
 

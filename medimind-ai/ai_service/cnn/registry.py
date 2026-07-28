@@ -9,7 +9,9 @@ import numpy as np
 
 from cnn.config import CNNModelConfig, get_cnn_model_configs
 from cnn.fallback import DatasetCentroidFallback
+from cnn.gradcam import generate_gradcam
 from cnn.preprocessing import ImageValidationError, OODImageError, preprocess_image, validate_chest_xray
+from cnn.trust_gate import compute_trust, DEFAULT_REFERENCE_STATS
 
 
 class CNNModelUnavailable(RuntimeError):
@@ -51,15 +53,21 @@ class CNNModelRegistry:
             self._load_dataset_fallback(model_id, config, f"Model load failed: {exc}")
 
     def _load_dataset_fallback(self, model_id: str, config: CNNModelConfig, warning: str) -> None:
-        try:
-            self.models[model_id] = DatasetCentroidFallback.from_dataset(config)
-            self.backends[model_id] = "dataset_knn_fallback"
-            self.warnings[model_id] = (
-                f"{warning}. Using labeled xray dataset nearest-neighbor fallback until the trained CNN artifact is restored."
-            )
-            self.errors.pop(model_id, None)
-        except Exception as exc:
-            self.errors[model_id] = f"{warning}. Fallback unavailable: {exc}"
+        # SAFETY: Nearest-neighbor fallback is NEVER used for medical predictions.
+        # A dataset centroid cannot substitute a trained clinical model.
+        # The model is simply marked unavailable with a clear explanation.
+        self.errors[model_id] = (
+            f"{warning}. Nearest-neighbor dataset fallback is intentionally disabled "
+            f"for medical predictions. No trained model artifact is available for "
+            f"'{config.display_name}'. Upload a valid CNN model file (.h5) to restore "
+            f"prediction capability."
+        )
+        # Log a warning regardless — the operator should see this
+        import logging
+        logging.getLogger(__name__).error(
+            "SAFETY: kNN fallback blocked for %s. Artifact not found at %s",
+            model_id, config.model_path,
+        )
 
     def list_models(self) -> list[dict]:
         return [self._model_status(model_id, config) for model_id, config in self.configs.items()]
@@ -120,6 +128,40 @@ class CNNModelRegistry:
             f"Confidence: {confidence}"
         )
 
+        # ── Grad-CAM heatmap (only for loaded Keras CNN models) ─────────
+        gradcam_data: dict | None = None
+        if self.backends.get(model_id) == "keras_cnn":
+            gradcam_data = generate_gradcam(
+                model=self.models[model_id],
+                input_batch=processed.batch,
+                predicted_class_idx=predicted_index,
+                original_image_bytes=image_bytes,
+            )
+
+        # ── Trust Gate: image quality + confidence + abstention ──────────
+        import io
+        trust_score = compute_trust(
+            probabilities=np.array([list(probabilities.values())]).flatten(),
+            image_array=processed.batch[0],
+            reference_stats=DEFAULT_REFERENCE_STATS,
+        )
+
+        # Record trust gate metric
+        try:
+            import metrics as _m
+            _m.trust_gate_assessments.labels(trust_status=trust_score.trust_status).inc()
+        except ImportError:
+            pass
+
+        # If trust is too low, override status to "abstain"
+        if trust_score.trust_status == "abstain":
+            logger.warning(
+                f"Trust gate triggered ABSTAIN for {filename}: "
+                f"overall={trust_score.overall_score:.3f}, "
+                f"confidence={trust_score.confidence_score:.3f}, "
+                f"quality={trust_score.image_quality_score:.3f}"
+            )
+
         return {
             "model_id": model_id,
             "model_name": config.display_name,
@@ -133,8 +175,18 @@ class CNNModelRegistry:
             "probabilities": {label: round(float(value), 6) for label, value in probabilities.items()},
             "diagnosis": self._diagnosis_text(config, predicted_class, confidence),
             "assessment_summary": self._assessment_summary(predicted_class, confidence),
-            "clinical_recommendations": self._clinical_recommendations(predicted_class),
+            "clinical_recommendations": (
+                self._clinical_recommendations(predicted_class)
+                if trust_score.trust_status != "abstain"
+                else [
+                    "The AI model cannot make a reliable assessment on this image. "
+                    "A repeat chest X-ray or alternative imaging modality may be required.",
+                    "Please consult a qualified radiologist or clinician for proper evaluation.",
+                ]
+            ),
             "formatted_report": self._formatted_report(predicted_class, confidence, probabilities),
+            "gradcam": gradcam_data or {"status": "unavailable"},
+            "trust_assessment": trust_score.to_dict(),
             "metadata": {
                 **processed.metadata,
                 "inference_backend": self.backends.get(model_id, "unknown"),

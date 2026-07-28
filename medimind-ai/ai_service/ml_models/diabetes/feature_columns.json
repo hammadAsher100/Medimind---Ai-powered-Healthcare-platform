@@ -1,0 +1,13 @@
+[
+  "pregnancies",
+  "glucose",
+  "blood_pressure",
+  "skin_thickness",
+  "insulin",
+  "bmi",
+  "diabetes_pedigree_function",
+  "age",
+  "bmi_category",
+  "age_group",
+  "glucose_category"
+]

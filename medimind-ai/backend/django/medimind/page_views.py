@@ -1,14 +1,28 @@
 from django.conf import settings
-from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth import logout as django_logout
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import redirect, render
-from django.views.decorators.http import require_GET
+from django.views.decorators.http import require_GET, require_POST
 
 from health_score.models import HealthScore
 from recommendations.models import Prediction, Recommendation
 from reports.models import MedicalReport
 from timeline.models import TimelineEvent
 from users.models import Allergy, FamilyHistory, MedicalProfile
+
+from clinical.models import (
+    ClinicalObservation,
+    DataConflict,
+    DiagnosticReportRecord,
+    PatientStateSnapshot,
+)
+from medication.models import (
+    Medication,
+    MedicationAllergy,
+    MedicationSafetyAlert,
+    PatientMedication,
+)
+from reviews.models import AuditEvent, ModelFeedback, ReviewDecision
 
 
 def _common_context(request, title):
@@ -32,7 +46,9 @@ def register_page(request):
     return render(request, "auth/register.html")
 
 
+@require_POST
 def logout_page(request):
+    """Log out via POST only — prevents CSRF logout attacks via GET links."""
     django_logout(request)
     return redirect("login_page")
 
@@ -163,3 +179,136 @@ def mlops_page(request):
         "active_users": max(Prediction.objects.values("user").distinct().count(), 1),
     })
     return render(request, "admin_panel/mlops.html", context)
+
+
+# ─── Clinical Intelligence Pages ─────────────────────────────────────────────
+
+
+@login_required
+def clinical_dashboard_page(request):
+    """Main clinical intelligence dashboard — patient state overview."""
+    user = request.user
+    latest_state = PatientStateSnapshot.objects.filter(
+        user=user, is_current=True
+    ).first()
+    recent_conflicts = DataConflict.objects.filter(user=user)[:5]
+    recent_observations = ClinicalObservation.objects.filter(user=user)[:10]
+    recent_reports = DiagnosticReportRecord.objects.filter(user=user)[:5]
+
+    context = _common_context(request, "Clinical Intelligence")
+    context.update({
+        "patient_state": latest_state,
+        "recent_conflicts": recent_conflicts,
+        "recent_observations": recent_observations,
+        "recent_reports": recent_reports,
+        "conflict_count": DataConflict.objects.filter(
+            user=user, resolution_status="unresolved"
+        ).count(),
+        "observation_count": ClinicalObservation.objects.filter(user=user).count(),
+    })
+    return render(request, "clinical/dashboard.html", context)
+
+
+@login_required
+def lab_trends_page(request):
+    """Longitudinal laboratory trends viewer."""
+    user = request.user
+    observations = ClinicalObservation.objects.filter(
+        user=user
+    ).order_by("-collection_date")
+
+    # Group by test name for the frontend
+    test_names = sorted(
+        set(o.standardised_name or o.test_name for o in observations)
+    )
+
+    context = _common_context(request, "Lab Trends")
+    context.update({
+        "observations": observations[:50],
+        "test_names": test_names,
+    })
+    return render(request, "clinical/lab_trends.html", context)
+
+
+@login_required
+def medications_page(request):
+    """Patient medication list and management."""
+    user = request.user
+    medications = PatientMedication.objects.filter(
+        user=user
+    ).select_related("medication")
+    allergies = MedicationAllergy.objects.filter(user=user)
+    alerts = MedicationSafetyAlert.objects.filter(
+        user=user, resolution_status="unresolved"
+    )
+
+    context = _common_context(request, "Medications")
+    context.update({
+        "medications": medications,
+        "allergies": allergies,
+        "alerts": alerts,
+    })
+    return render(request, "clinical/medications.html", context)
+
+
+@login_required
+def medication_safety_page(request):
+    """Medication safety passport — interaction checks and alerts."""
+    user = request.user
+    medications = PatientMedication.objects.filter(
+        user=user, status="active"
+    ).select_related("medication")
+    allergies = MedicationAllergy.objects.filter(user=user)
+    alerts = MedicationSafetyAlert.objects.filter(user=user)[:20]
+
+    context = _common_context(request, "Medication Safety")
+    context.update({
+        "medications": medications,
+        "allergies": allergies,
+        "alerts": alerts,
+    })
+    return render(request, "clinical/medication_safety.html", context)
+
+
+@login_required
+def counterfactual_page(request):
+    """Counterfactual health simulator."""
+    user = request.user
+    latest_predictions = {}
+    for pred in Prediction.objects.filter(user=user).order_by("-created_at"):
+        latest_predictions.setdefault(pred.disease, pred)
+
+    context = _common_context(request, "Health Simulator")
+    context["latest_predictions"] = latest_predictions
+    return render(request, "clinical/counterfactual.html", context)
+
+
+@login_required
+def fhir_export_page(request):
+    """FHIR export page."""
+    user = request.user
+    context = _common_context(request, "FHIR Export")
+    context.update({
+        "observation_count": ClinicalObservation.objects.filter(user=user).count(),
+        "prediction_count": Prediction.objects.filter(user=user).count(),
+        "has_health_score": HealthScore.objects.filter(user=user).exists(),
+        "allergy_count": Allergy.objects.filter(user=user).count(),
+    })
+    return render(request, "clinical/fhir_export.html", context)
+
+
+@login_required
+def reviews_page(request):
+    """Clinician review and model feedback."""
+    user = request.user
+    reviews = ReviewDecision.objects.filter(user=user)[:20]
+    feedback = ModelFeedback.objects.filter(user=user)[:20]
+    audit_events = AuditEvent.objects.filter(user=user)[:30]
+
+    context = _common_context(request, "Reviews & Feedback")
+    context.update({
+        "reviews": reviews,
+        "feedback": feedback,
+        "audit_events": audit_events,
+    })
+    return render(request, "clinical/reviews.html", context)

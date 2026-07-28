@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }} | MediMind AI{% endblock %}
+
+{% block content %}
+<main class="main-content">
+  <header class="page-header">
+    <div class="page-header-row">
+      <div>
+        <h1 class="page-title">FHIR Export</h1>
+        <p class="page-subtitle">Export your health record as a FHIR R4 Bundle</p>
+      </div>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="card-body">
+      <p class="text-muted">
+        This page generates a <strong>FHIR R4</strong> (HL7 Fast Healthcare Interoperability Resources)
+        bundle from your MediMind data. FHIR is the international standard for exchanging healthcare
+        information electronically.
+      </p>
+      <p class="clinical-disclaimer">
+        This export is for educational purposes. It does not implement the full FHIR R4 specification
+        and should not be used for clinical data exchange without proper certification.
+      </p>
+    </div>
+  </div>
+
+  <!-- Data Summary -->
+  <div class="metric-strip" style="margin: var(--sp-5) 0;">
+    <div class="metric-strip-item">
+      <span class="metric-strip-label">Observations</span>
+      <span class="metric-strip-value">{{ observation_count }}</span>
+    </div>
+    <div class="metric-strip-item">
+      <span class="metric-strip-label">Risk Assessments</span>
+      <span class="metric-strip-value">{{ prediction_count }}</span>
+    </div>
+    <div class="metric-strip-item">
+      <span class="metric-strip-label">Health Score</span>
+      <span class="metric-strip-value">{% if has_health_score %}✓{% else %}—{% endif %}</span>
+    </div>
+    <div class="metric-strip-item">
+      <span class="metric-strip-label">Allergies</span>
+      <span class="metric-strip-value">{{ allergy_count }}</span>
+    </div>
+  </div>
+
+  <!-- Export Actions -->
+  <div class="grid-3">
+    <button class="btn btn-primary" onclick="exportFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
+      Export FHIR Bundle
+    </button>
+    <button class="btn" onclick="viewFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
+      View as JSON
+    </button>
+    <button class="btn" onclick="copyFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
+      Copy to Clipboard
+    </button>
+  </div>
+
+  <!-- Result -->
+  <div id="fhir-result" style="display: none; margin-top: var(--sp-5);">
+    <div class="card">
+      <div class="card-header">
+        <h3 class="card-title">FHIR Bundle</h3>
+        <span class="text-muted">FHIR R4 • Bundle type: collection</span>
+      </div>
+      <div class="card-body">
+        <pre id="fhir-json" style="max-height: 500px; overflow: auto; background: var(--canvas); padding: var(--sp-3); border-radius: 4px; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;"></pre>
+      </div>
+    </div>
+  </div>
+
+  <p class="clinical-disclaimer" style="margin-top: var(--sp-5);">
+    This FHIR bundle is generated for educational purposes. It may not contain all clinically relevant data. Do not use for clinical decision-making without verification by a qualified healthcare provider.
+  </p>
+</main>
+
+<style>
+  .metric-strip { display: flex; gap: var(--sp-5); flex-wrap: wrap; }
+  .metric-strip-item { flex: 1; min-width: 120px; }
+  .metric-strip-label { display: block; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: var(--sp-1); }
+  .metric-strip-value { font-size: 1.5rem; font-weight: 600; color: var(--text); }
+</style>
+
+<script>
+let currentBundle = null;
+
+function exportFHIR() {
+  showLoading();
+  fetch('/ai/fhir/export', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      user_id: {{ request.user.id }},
+      patient_data: {},
+      observations: [],
+      predictions: [],
+      allergies: [],
+    })
+  })
+  .then(r => r.json())
+  .then(data => {
+    hideLoading();
+    currentBundle = data;
+    document.getElementById('fhir-result').style.display = 'block';
+    document.getElementById('fhir-json').textContent = JSON.stringify(data, null, 2);
+  })
+  .catch(() => {
+    hideLoading();
+    // Fallback: try via proxy
+    fetch('/ai/fhir/export', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({user_id: {{ request.user.id }}, patient_data: {}})
+    })
+    .then(r => r.json())
+    .then(data => {
+      currentBundle = data;
+      document.getElementById('fhir-result').style.display = 'block';
+      document.getElementById('fhir-json').textContent = JSON.stringify(data, null, 2);
+    })
+    .catch(() => alert('Error exporting FHIR bundle. Server may be unavailable.'));
+  });
+}
+
+function viewFHIR() {
+  if (currentBundle) {
+    exportFHIR();  // Re-fetch then show
+  }
+}
+
+function copyFHIR() {
+  if (!currentBundle) {
+    alert('Generate the bundle first.');
+    return;
+  }
+  navigator.clipboard.writeText(JSON.stringify(currentBundle, null, 2))
+    .then(() => alert('FHIR bundle copied to clipboard!'))
+    .catch(() => alert('Failed to copy. Select all (Ctrl+A) and copy manually.'));
+}
+</script>
+{% endblock %}

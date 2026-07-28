@@ -9,6 +9,7 @@ env/
 *.sqlite3
 *.db
 *.pem
+temp_key*
 aws_setup/
 media/
 staticfiles/

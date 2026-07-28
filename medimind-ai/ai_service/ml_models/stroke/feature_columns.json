@@ -1,0 +1,23 @@
+[
+  "age",
+  "hypertension",
+  "heart_disease",
+  "avg_glucose_level",
+  "bmi",
+  "hypertension_heart_disease_flag",
+  "gender_female",
+  "gender_male",
+  "ever_married_no",
+  "ever_married_yes",
+  "work_type_children",
+  "work_type_govt_job",
+  "work_type_never_worked",
+  "work_type_private",
+  "work_type_self-employed",
+  "residence_type_rural",
+  "residence_type_urban",
+  "smoking_status_formerly smoked",
+  "smoking_status_never smoked",
+  "smoking_status_smokes",
+  "smoking_status_unknown"
+]
