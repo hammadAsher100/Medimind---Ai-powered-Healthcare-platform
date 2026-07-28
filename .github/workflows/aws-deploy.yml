@@ -52,11 +52,11 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/medimind-ai
-            # Pull the latest docker-compose.yml from git (assuming the repo is cloned on the server)
+            # Pull the latest code from git
             git pull origin main
             
             # Pull the new images from Docker Hub
-            docker compose -f medimind-ai/docker-compose.yml pull
+            docker compose -f docker-compose.yml pull
             
             # Restart the services
-            docker compose -f medimind-ai/docker-compose.yml up -d --remove-orphans
+            docker compose -f docker-compose.yml up -d --remove-orphans
