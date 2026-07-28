@@ -34,3 +34,5 @@ PNEUMONIA_BACKUP/
 logs/
 
 qdrant_storage/
+val_backup_original/
+__MACOSX/
