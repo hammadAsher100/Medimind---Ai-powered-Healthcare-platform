@@ -127,7 +127,7 @@ services:
       dockerfile: docker/nginx.Dockerfile
     image: hammadasher/medimind-nginx:latest
     ports:
-      - "18080:80"
+      - "80:80"
     volumes:
       - django_static:/staticfiles:ro
       - django_media:/media:ro
