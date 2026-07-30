@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:15
+    restart: unless-stopped
     env_file: .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -18,8 +19,7 @@ services:
 
   qdrant:
     image: qdrant/qdrant:latest
-    ports:
-      - "16333:6333"
+    restart: unless-stopped
     volumes:
       - qdrant_storage:/qdrant/storage
     networks:
@@ -27,6 +27,7 @@ services:
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
+    restart: unless-stopped
     env_file: .env
     command: >
       sh -c "mlflow server
@@ -34,8 +35,6 @@ services:
              --port 5000
              --backend-store-uri postgresql://$${POSTGRES_USER}:$${POSTGRES_PASSWORD}@postgres:5432/$${POSTGRES_DB}
              --default-artifact-root $${MLFLOW_ARTIFACT_ROOT:-/mlartifacts}"
-    ports:
-      - "15000:5000"
     volumes:
       - mlflow_artifacts:/mlartifacts
     depends_on:
@@ -46,21 +45,26 @@ services:
 
   django:
     image: hammadasher/medimind-django:latest
+    build:
+      context: .
+      dockerfile: docker/django.Dockerfile
+    restart: unless-stopped
     env_file: .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-medimind.settings.development}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-unsafe-development-secret}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
-      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,django}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
       POSTGRES_HOST: postgres
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-False}
       CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-False}
     command: >
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
-             gunicorn medimind.wsgi:application --bind 0.0.0.0:8000 --workers 4"
-    ports:
-      - "18000:8000"
+             gunicorn medimind.wsgi:application
+             --bind 0.0.0.0:8000
+             --workers 3
+             --timeout 120"
     volumes:
       - django_static:/app/staticfiles
       - django_media:/app/media
@@ -72,9 +76,16 @@ services:
 
   fastapi:
     image: hammadasher/medimind-fastapi:latest
+    build:
+      context: .
+      dockerfile: docker/fastapi.Dockerfile
+    restart: unless-stopped
     env_file: .env
-    ports:
-      - "18001:8001"
+    environment:
+      MODEL_BASE_DIR: /opt/medimind/models
+      CNN_PNEUMONIA_MODEL_PATH: /opt/medimind/models/pneumonia/resnet50_pneumonia.keras
+    volumes:
+      - /opt/medimind/models:/opt/medimind/models:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -85,12 +96,11 @@ services:
 
   prometheus:
     image: prom/prometheus:latest
+    restart: unless-stopped
     command:
       - --config.file=/etc/prometheus/prometheus.yml
     volumes:
       - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-    ports:
-      - "19090:9090"
     depends_on:
       - fastapi
       - django
@@ -99,17 +109,16 @@ services:
 
   grafana:
     image: grafana/grafana:latest
+    restart: unless-stopped
     env_file: .env
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
       GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
-      GF_SERVER_ROOT_URL: http://localhost/grafana/
+      GF_SERVER_ROOT_URL: "%(protocol)s://%(domain)s/grafana/"
       GF_SERVER_SERVE_FROM_SUB_PATH: "true"
     volumes:
       - grafana_data:/var/lib/grafana
       - ./monitoring/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-    ports:
-      - "13000:3000"
     depends_on:
       - prometheus
     networks:
@@ -117,6 +126,10 @@ services:
 
   nginx:
     image: hammadasher/medimind-nginx:latest
+    build:
+      context: .
+      dockerfile: docker/nginx.Dockerfile
+    restart: unless-stopped
     ports:
       - "80:80"
     volumes:
