@@ -45,9 +45,6 @@ services:
       - medimind_network
 
   django:
-    build:
-      context: .
-      dockerfile: docker/django.Dockerfile
     image: hammadasher/medimind-django:latest
     env_file: .env
     environment:
@@ -74,9 +71,6 @@ services:
       - medimind_network
 
   fastapi:
-    build:
-      context: .
-      dockerfile: docker/fastapi.Dockerfile
     image: hammadasher/medimind-fastapi:latest
     env_file: .env
     ports:
@@ -122,9 +116,6 @@ services:
       - medimind_network
 
   nginx:
-    build:
-      context: .
-      dockerfile: docker/nginx.Dockerfile
     image: hammadasher/medimind-nginx:latest
     ports:
       - "80:80"
