@@ -125,3 +125,13 @@ coverage.xml
 .env.local
 .env.development
 .env.production
+
+# Temporary analysis/output files
+all_files.txt
+analysis_output.txt
+final_report_123.md
+output.json
+report.md
+view_json.py
+*.tmp.txt
+*.tmp.json
