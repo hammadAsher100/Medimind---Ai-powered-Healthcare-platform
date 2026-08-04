@@ -208,12 +208,17 @@ jobs:
             --region "$AWS_REGION" \
             --bucket "__S3_BUCKET__" \
             --prefix "__S3_PREFIX__/" \
-            --query "length(Contents)" \
+            --query 'length(Contents || `[]`)' \
             --output text)
 
+          echo "S3 bucket: __S3_BUCKET__"
+          echo "S3 prefix: __S3_PREFIX__/"
           echo "S3 object count: $S3_OBJECT_COUNT"
-          test "$S3_OBJECT_COUNT" != "None"
-          test "$S3_OBJECT_COUNT" -ge 10
+
+          if [ "$S3_OBJECT_COUNT" -lt 10 ]; then
+            echo "S3 model prefix is empty or incomplete"
+            exit 1
+          fi
 
           aws s3 sync \
             "s3://__S3_BUCKET__/__S3_PREFIX__/" \
@@ -274,9 +279,27 @@ jobs:
           SCRIPT
           )
 
+          NORMALIZED_S3_BUCKET="${S3_BUCKET#s3://}"
+          NORMALIZED_S3_BUCKET="${NORMALIZED_S3_BUCKET%/}"
+
+          NORMALIZED_S3_PREFIX="${S3_PREFIX#/}"
+          NORMALIZED_S3_PREFIX="${NORMALIZED_S3_PREFIX%/}"
+
+          if [ -z "$NORMALIZED_S3_BUCKET" ]; then
+            echo "S3_BUCKET is empty after normalization"
+            exit 1
+          fi
+
+          if [ -z "$NORMALIZED_S3_PREFIX" ]; then
+            echo "S3_PREFIX is empty after normalization"
+            exit 1
+          fi
+
+          echo "Using S3 path: s3://${NORMALIZED_S3_BUCKET}/${NORMALIZED_S3_PREFIX}/"
+
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__AWS_REGION__/${AWS_DEPLOY_REGION}}"
-          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_BUCKET__/${S3_BUCKET}}"
-          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_PREFIX__/${S3_PREFIX}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_BUCKET__/${NORMALIZED_S3_BUCKET}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_PREFIX__/${NORMALIZED_S3_PREFIX}}"
 
           PARAMETERS=$(jq -n --arg command "$DEPLOY_SCRIPT" '{commands: [$command]}')
 
