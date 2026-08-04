@@ -42,7 +42,29 @@ _Disease Risk Assessment · Medical Report Analysis · Personalized Health Assis
 
 ---
 
-**MediMind AI** is a production-oriented multi-agent healthcare platform combining a Django backend, a FastAPI AI service, and multiple ML/AI models for clinical decision support — including chest X-ray pneumonia detection with **Grad-CAM heatmap visualization**, disease risk prediction, an AI chat assistant, and a health score tracker.
+**MediMind AI** is a production-oriented multi-agent healthcare platform that unifies clinical decision support, medical report intelligence, and personalized health guidance in one experience. It combines a Django web backend, a FastAPI AI service, and advanced ML models to help users understand risk, explore explanations, and review medical information with greater clarity.
+
+## ✨ Why this project stands out
+
+- 🧠 Multi-agent AI workflow for triage, reasoning, and health assistance
+- 🩺 Clinical decision support with explainable disease-risk predictions
+- 📸 Chest X-ray pneumonia screening with Grad-CAM visual explanations
+- 📊 Patient-state intelligence, lab trend analysis, and medication safety checks
+- 🔐 Built-in safety, disclaimers, and clinician review workflows for responsible use
+
+## 🧭 Table of contents
+
+- [Features](#features)
+- [Quick Start (Local, no Docker)](#quick-start-local-no-docker)
+- [Docker Deployment](#docker-deployment)
+- [Chest X-ray Analysis with Grad-CAM](#chest-x-ray-analysis-with-grad-cam)
+- [Disease Risk Prediction Models](#disease-risk-prediction-models)
+- [Architecture](#architecture)
+- [API Reference](#api-reference)
+- [Project Structure](#project-structure)
+- [Environment Variables](#environment-variables)
+- [Observability](#observability)
+- [Safety](#safety)
 
 ---
 
