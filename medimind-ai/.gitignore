@@ -1,38 +1,47 @@
 __pycache__/
 *.pyc
 *.pyo
+
 .venv/
 venv/
 env/
+
 *.egg-info/
 
 *.sqlite3
 *.db
+
 *.pem
 temp_key*
+
 aws_setup/
+
 media/
 staticfiles/
 
 .env
 *.env
 .env.*
+!.env.example
 
 *.pkl
 *.joblib
+
 mlruns/
 mlartifacts/
+
 PNEUMONIA_BACKUP/
 
 .vscode/
 .idea/
-*.DS_Store
 
+*.DS_Store
 .ipynb_checkpoints/
 
 *.log
 logs/
 
 qdrant_storage/
+
 val_backup_original/
 __MACOSX/
