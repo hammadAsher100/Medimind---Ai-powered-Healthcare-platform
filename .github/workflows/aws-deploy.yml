@@ -1,175 +1,70 @@
-name: AWS Deploy
-on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
-jobs:
-  deploy:
-    name: Deploy to AWS EC2
-    runs-on: ubuntu-latest
-    steps:
-      - name: Send deployment command
-        id: deploy
+      - name: Wait for deployment result
         shell: bash
         env:
+          COMMAND_ID: ${{ steps.deploy.outputs.command_id }}
           EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-          S3_BUCKET: ${{ vars.S3_BUCKET }}
-          S3_PREFIX: ${{ vars.S3_PREFIX }}
-          DEPLOYED_COMMIT: ${{ github.sha }}
+          AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
         run: |
           set -euo pipefail
 
-          DEPLOY_SCRIPT=$(cat <<'SCRIPT'
-          set -euxo pipefail
+          for attempt in $(seq 1 120); do
+            STATUS=$(aws ssm get-command-invocation \
+              --region "$AWS_DEPLOY_REGION" \
+              --command-id "$COMMAND_ID" \
+              --instance-id "$EC2_INSTANCE_ID" \
+              --query "Status" \
+              --output text 2>/dev/null || echo "Pending")
 
-          export HOME=/root
-          export USER=root
+            echo "Attempt $attempt: $STATUS"
 
-          APP_ROOT="/opt/medimind/app"
-          COMPOSE_DIR="/opt/medimind/app/medimind-ai"
-          MODEL_DIR="/opt/medimind/models"
-          ENV_BACKUP="/tmp/medimind-production.env"
+            case "$STATUS" in
+              Success)
+                echo "Deployment succeeded"
 
-          echo "Preparing deployment directories"
+                aws ssm get-command-invocation \
+                  --region "$AWS_DEPLOY_REGION" \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$EC2_INSTANCE_ID" \
+                  --query "StandardOutputContent" \
+                  --output text
 
-          mkdir -p "$APP_ROOT"
-          mkdir -p "$MODEL_DIR"
+                exit 0
+                ;;
 
-          chown -R ec2-user:ec2-user /opt/medimind
+              Failed|Cancelled|TimedOut)
+                echo "Deployment failed with status: $STATUS"
 
-          git config --system --add safe.directory "$APP_ROOT" || true
+                echo "Standard output"
 
-          if [ ! -d "$APP_ROOT/.git" ]; then
-            rm -rf "$APP_ROOT"
+                aws ssm get-command-invocation \
+                  --region "$AWS_DEPLOY_REGION" \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$EC2_INSTANCE_ID" \
+                  --query "StandardOutputContent" \
+                  --output text || true
 
-            git clone \
-              https://github.com/hammadAsher100/Medimind---Ai-powered-Healthcare-platform.git \
-              "$APP_ROOT"
-          fi
+                echo "Standard error"
 
-          if [ -f "$COMPOSE_DIR/.env" ]; then
-            cp "$COMPOSE_DIR/.env" "$ENV_BACKUP"
-            chmod 600 "$ENV_BACKUP"
-          fi
+                aws ssm get-command-invocation \
+                  --region "$AWS_DEPLOY_REGION" \
+                  --command-id "$COMMAND_ID" \
+                  --instance-id "$EC2_INSTANCE_ID" \
+                  --query "StandardErrorContent" \
+                  --output text || true
 
-          cd "$APP_ROOT"
+                exit 1
+                ;;
 
-          git fetch origin main
-          git reset --hard origin/main
-          git clean -fd
+              Pending|InProgress|Delayed)
+                sleep 10
+                ;;
 
-          if [ -f "$ENV_BACKUP" ]; then
-            cp "$ENV_BACKUP" "$COMPOSE_DIR/.env"
-            chmod 600 "$COMPOSE_DIR/.env"
-          fi
-
-          test -f "$COMPOSE_DIR/.env"
-
-          S3_OBJECT_COUNT=$(aws s3api list-objects-v2 \
-            --bucket "__S3_BUCKET__" \
-            --prefix "__S3_PREFIX__/" \
-            --query "length(Contents)" \
-            --output text)
-
-          echo "S3 object count: $S3_OBJECT_COUNT"
-
-          if [ "$S3_OBJECT_COUNT" = "None" ] || [ "$S3_OBJECT_COUNT" -lt 10 ]; then
-            echo "S3 model prefix is empty or incomplete"
-            exit 1
-          fi
-
-          aws s3 sync \
-            "s3://__S3_BUCKET__/__S3_PREFIX__/" \
-            "$MODEL_DIR/"
-
-          find "$MODEL_DIR" -type d -exec chmod 755 {} \;
-          find "$MODEL_DIR" -type f -exec chmod 644 {} \;
-
-          for disease in diabetes heart kidney stroke; do
-            test -r "$MODEL_DIR/$disease/model.joblib"
-            test -r "$MODEL_DIR/$disease/scaler.joblib"
-            test -r "$MODEL_DIR/$disease/feature_columns.json"
+              *)
+                echo "Unexpected status: $STATUS"
+                sleep 10
+                ;;
+            esac
           done
 
-          test -r "$MODEL_DIR/pneumonia/cnn_pneumonia.h5"
-
-          cd "$COMPOSE_DIR"
-
-          chmod 600 .env
-
-          docker compose config --quiet
-          docker compose pull
-          docker compose up -d --force-recreate --remove-orphans
-
-          sleep 75
-
-          docker compose ps -a
-
-          docker compose exec -T fastapi \
-            sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
-
-          FASTAPI_CONTAINER=$(docker compose ps -q fastapi)
-          test -n "$FASTAPI_CONTAINER"
-
-          FASTAPI_RUNNING=$(docker inspect \
-            --format='{{.State.Running}}' \
-            "$FASTAPI_CONTAINER")
-
-          FASTAPI_OOM=$(docker inspect \
-            --format='{{.State.OOMKilled}}' \
-            "$FASTAPI_CONTAINER")
-
-          echo "FastAPI running: $FASTAPI_RUNNING"
-          echo "FastAPI OOM killed: $FASTAPI_OOM"
-
-          test "$FASTAPI_RUNNING" = "true"
-          test "$FASTAPI_OOM" = "false"
-
-          HTTP_STATUS=$(curl \
-            --silent \
-            --output /dev/null \
-            --write-out "%{http_code}" \
-            --retry 12 \
-            --retry-delay 5 \
-            --max-time 30 \
-            http://localhost/)
-
-          echo "Application HTTP status: $HTTP_STATUS"
-
-          case "$HTTP_STATUS" in
-            200|301|302)
-              echo "Application is responding"
-              ;;
-            *)
-              docker compose logs --tail=200 nginx
-              docker compose logs --tail=200 django
-              exit 1
-              ;;
-          esac
-
-          docker compose logs --tail=100 fastapi
-          docker image prune -f
-
-          echo "Deployment completed successfully"
-          SCRIPT
-          )
-
-          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_BUCKET__/${S3_BUCKET}}"
-          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_PREFIX__/${S3_PREFIX}}"
-
-          PARAMETERS=$(jq -n \
-            --arg command "$DEPLOY_SCRIPT" \
-            '{commands: [$command]}')
-
-          COMMAND_ID=$(aws ssm send-command \
-            --instance-ids "$EC2_INSTANCE_ID" \
-            --document-name "AWS-RunShellScript" \
-            --comment "Deploy MediMind commit $DEPLOYED_COMMIT" \
-            --timeout-seconds 1800 \
-            --parameters "$PARAMETERS" \
-            --query "Command.CommandId" \
-            --output text)
-
-          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
-          echo "Deployment command ID: $COMMAND_ID"
+          echo "Deployment timed out"
+          exit 1
