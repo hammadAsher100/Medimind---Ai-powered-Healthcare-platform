@@ -1,202 +1,15 @@
-name: AWS CI CD Pipeline
-
+name: AWS Deploy
 on:
   push:
     branches:
       - main
   workflow_dispatch:
-
-concurrency:
-  group: medimind-production
-  cancel-in-progress: false
-
-permissions:
-  contents: read
-  id-token: write
-
-env:
-  COMPOSE_DIRECTORY: medimind-ai
-  DOCKERHUB_NAMESPACE: hammadasher
-
 jobs:
-  validate:
-    name: Validate Application
+  deploy:
+    name: Deploy to AWS EC2
     runs-on: ubuntu-latest
-
     steps:
-      • name: Checkout repository
-        uses: actions/checkout@v4
-
-      • name: Verify required deployment files
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          test -f "${COMPOSE_DIRECTORY}/docker-compose.yml"
-          test -f "${COMPOSE_DIRECTORY}/.env.example"
-          test -f "${COMPOSE_DIRECTORY}/docker/fastapi.Dockerfile"
-          test -f "${COMPOSE_DIRECTORY}/docker/django.Dockerfile"
-          test -f "${COMPOSE_DIRECTORY}/docker/nginx.Dockerfile"
-
-          echo "Required deployment files are present"
-
-      • name: Create validation environment
-        working-directory: ${{ env.COMPOSE_DIRECTORY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          cp .env.example .env
-
-      • name: Validate Docker Compose
-        working-directory: ${{ env.COMPOSE_DIRECTORY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          docker compose config --quiet
-          echo "Docker Compose configuration is valid"
-
-  build-and-push:
-    name: Build and Push Images
-    runs-on: ubuntu-latest
-    needs: validate
-    environment: production
-
-    steps:
-      • name: Checkout repository
-        uses: actions/checkout@v4
-
-      • name: Verify Docker Hub credentials
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then
-            echo "DOCKER_USERNAME is missing"
-            exit 1
-          fi
-
-          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            echo "DOCKERHUB_TOKEN is missing"
-            exit 1
-          fi
-
-          echo "Docker Hub credentials are available"
-
-      • name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      • name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      • name: Build and push FastAPI image
-        uses: docker/build-push-action@v6
-        with:
-          context: medimind-ai
-          file: medimind-ai/docker/fastapi.Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-fastapi:latest
-            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-fastapi:${{ github.sha }}
-          cache-from: type=gha,scope=medimind-fastapi
-          cache-to: type=gha,mode=max,scope=medimind-fastapi
-
-      • name: Build and push Django image
-        uses: docker/build-push-action@v6
-        with:
-          context: medimind-ai
-          file: medimind-ai/docker/django.Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-django:latest
-            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-django:${{ github.sha }}
-          cache-from: type=gha,scope=medimind-django
-          cache-to: type=gha,mode=max,scope=medimind-django
-
-      • name: Build and push Nginx image
-        uses: docker/build-push-action@v6
-        with:
-          context: medimind-ai
-          file: medimind-ai/docker/nginx.Dockerfile
-          push: true
-          tags: |
-            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-nginx:latest
-            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-nginx:${{ github.sha }}
-          cache-from: type=gha,scope=medimind-nginx
-          cache-to: type=gha,mode=max,scope=medimind-nginx
-
-  deploy-to-ec2:
-    name: Deploy to EC2
-    runs-on: ubuntu-latest
-    needs: build-and-push
-    environment: production
-
-    steps:
-      • name: Verify AWS deployment variables
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          if [ -z "${{ vars.AWS_ROLE_ARN }}" ]; then
-            echo "AWS_ROLE_ARN is missing"
-            exit 1
-          fi
-
-          if [ -z "${{ vars.AWS_REGION }}" ]; then
-            echo "AWS_REGION is missing"
-            exit 1
-          fi
-
-          if [ -z "${{ vars.EC2_INSTANCE_ID }}" ]; then
-            echo "EC2_INSTANCE_ID is missing"
-            exit 1
-          fi
-
-          if [ -z "${{ vars.S3_BUCKET }}" ]; then
-            echo "S3_BUCKET is missing"
-            exit 1
-          fi
-
-          if [ -z "${{ vars.S3_PREFIX }}" ]; then
-            echo "S3_PREFIX is missing"
-            exit 1
-          fi
-
-          echo "AWS deployment variables are available"
-
-      • name: Configure AWS credentials through OIDC
-        uses: aws-actions/configure-aws-credentials@v5
-        with:
-          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          aws-region: ${{ vars.AWS_REGION }}
-          role-session-name: medimind-github-deployment
-
-      • name: Verify AWS identity
-        shell: bash
-        run: |
-          set -euo pipefail
-          aws sts get-caller-identity
-
-      • name: Verify EC2 Systems Manager connection
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          STATUS=$(aws ssm describe-instance-information \
-            --filters "Key=InstanceIds,Values=${{ vars.EC2_INSTANCE_ID }}" \
-            --query "InstanceInformationList[0].PingStatus" \
-            --output text)
-
-          echo "Systems Manager status: $STATUS"
-
-          if [ "$STATUS" != "Online" ]; then
-            echo "EC2 is not online in Systems Manager"
-            exit 1
-          fi
-
-      • name: Send deployment command
+      - name: Send deployment command
         id: deploy
         shell: bash
         env:
@@ -228,8 +41,6 @@ jobs:
           git config --system --add safe.directory "$APP_ROOT" || true
 
           if [ ! -d "$APP_ROOT/.git" ]; then
-            echo "Cloning repository"
-
             rm -rf "$APP_ROOT"
 
             git clone \
@@ -237,14 +48,10 @@ jobs:
               "$APP_ROOT"
           fi
 
-          echo "Backing up production environment"
-
           if [ -f "$COMPOSE_DIR/.env" ]; then
             cp "$COMPOSE_DIR/.env" "$ENV_BACKUP"
             chmod 600 "$ENV_BACKUP"
           fi
-
-          echo "Updating repository"
 
           cd "$APP_ROOT"
 
@@ -252,23 +59,12 @@ jobs:
           git reset --hard origin/main
           git clean -fd
 
-          echo "Restoring production environment"
-
           if [ -f "$ENV_BACKUP" ]; then
             cp "$ENV_BACKUP" "$COMPOSE_DIR/.env"
             chmod 600 "$COMPOSE_DIR/.env"
           fi
 
-          if [ ! -f "$COMPOSE_DIR/.env" ]; then
-            echo "Production .env file is missing"
-            exit 1
-          fi
-
-          echo "Current deployed commit"
-
-          git log -1 --oneline
-
-          echo "Validating S3 model prefix"
+          test -f "$COMPOSE_DIR/.env"
 
           S3_OBJECT_COUNT=$(aws s3api list-objects-v2 \
             --bucket "__S3_BUCKET__" \
@@ -278,17 +74,10 @@ jobs:
 
           echo "S3 object count: $S3_OBJECT_COUNT"
 
-          if [ "$S3_OBJECT_COUNT" = "None" ]; then
-            echo "S3 model prefix is empty"
+          if [ "$S3_OBJECT_COUNT" = "None" ] || [ "$S3_OBJECT_COUNT" -lt 10 ]; then
+            echo "S3 model prefix is empty or incomplete"
             exit 1
           fi
-
-          if [ "$S3_OBJECT_COUNT" -lt 10 ]; then
-            echo "S3 model prefix contains too few files"
-            exit 1
-          fi
-
-          echo "Synchronizing models from S3"
 
           aws s3 sync \
             "s3://__S3_BUCKET__/__S3_PREFIX__/" \
@@ -297,75 +86,28 @@ jobs:
           find "$MODEL_DIR" -type d -exec chmod 755 {} \;
           find "$MODEL_DIR" -type f -exec chmod 644 {} \;
 
-          echo "Verifying tabular models"
-
           for disease in diabetes heart kidney stroke; do
             test -r "$MODEL_DIR/$disease/model.joblib"
             test -r "$MODEL_DIR/$disease/scaler.joblib"
             test -r "$MODEL_DIR/$disease/feature_columns.json"
           done
 
-          echo "Verifying CNN model"
-
           test -r "$MODEL_DIR/pneumonia/cnn_pneumonia.h5"
-
-          echo "All required model files are available"
 
           cd "$COMPOSE_DIR"
 
           chmod 600 .env
 
-          echo "Validating Docker Compose"
-
           docker compose config --quiet
-
-          echo "Pulling latest images"
-
           docker compose pull
-
-          echo "Recreating services"
-
-          docker compose up \
-            -d \
-            --force-recreate \
-            --remove-orphans
-
-          echo "Waiting for services to initialize"
+          docker compose up -d --force-recreate --remove-orphans
 
           sleep 75
 
-          echo "Container status"
-
           docker compose ps -a
-
-          echo "Checking PostgreSQL"
-
-          POSTGRES_CONTAINER=$(docker compose ps -q postgres)
-          test -n "$POSTGRES_CONTAINER"
-
-          POSTGRES_HEALTH=$(docker inspect \
-            --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' \
-            "$POSTGRES_CONTAINER")
-
-          echo "PostgreSQL health: $POSTGRES_HEALTH"
-
-          if [ "$POSTGRES_HEALTH" != "healthy" ]; then
-            docker compose logs --tail=200 postgres
-            exit 1
-          fi
-
-          echo "Checking FastAPI model path"
-
-          docker compose exec -T fastapi \
-            sh -lc 'echo "CNN model path: $CNN_PNEUMONIA_MODEL_PATH"'
-
-          docker compose exec -T fastapi \
-            sh -lc 'test "$CNN_PNEUMONIA_MODEL_PATH" = "/opt/medimind/models/pneumonia/cnn_pneumonia.h5"'
 
           docker compose exec -T fastapi \
             sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
-
-          echo "Checking FastAPI container state"
 
           FASTAPI_CONTAINER=$(docker compose ps -q fastapi)
           test -n "$FASTAPI_CONTAINER"
@@ -378,46 +120,11 @@ jobs:
             --format='{{.State.OOMKilled}}' \
             "$FASTAPI_CONTAINER")
 
-          FASTAPI_RESTARTS=$(docker inspect \
-            --format='{{.RestartCount}}' \
-            "$FASTAPI_CONTAINER")
-
           echo "FastAPI running: $FASTAPI_RUNNING"
           echo "FastAPI OOM killed: $FASTAPI_OOM"
-          echo "FastAPI restart count: $FASTAPI_RESTARTS"
 
-          if [ "$FASTAPI_RUNNING" != "true" ]; then
-            docker compose logs --tail=200 fastapi
-            exit 1
-          fi
-
-          if [ "$FASTAPI_OOM" = "true" ]; then
-            docker compose logs --tail=200 fastapi
-            exit 1
-          fi
-
-          echo "Checking FastAPI health"
-
-          docker compose exec -T fastapi \
-            python -c "import urllib.request; response = urllib.request.urlopen('http://127.0.0.1:8001/health', timeout=30); print(response.status); assert response.status == 200"
-
-          echo "Checking Django container"
-
-          DJANGO_CONTAINER=$(docker compose ps -q django)
-          test -n "$DJANGO_CONTAINER"
-
-          DJANGO_RUNNING=$(docker inspect \
-            --format='{{.State.Running}}' \
-            "$DJANGO_CONTAINER")
-
-          echo "Django running: $DJANGO_RUNNING"
-
-          if [ "$DJANGO_RUNNING" != "true" ]; then
-            docker compose logs --tail=200 django
-            exit 1
-          fi
-
-          echo "Checking Nginx response"
+          test "$FASTAPI_RUNNING" = "true"
+          test "$FASTAPI_OOM" = "false"
 
           HTTP_STATUS=$(curl \
             --silent \
@@ -432,29 +139,19 @@ jobs:
 
           case "$HTTP_STATUS" in
             200|301|302)
-              echo "Application is responding correctly"
+              echo "Application is responding"
               ;;
             *)
-              echo "Unexpected HTTP status: $HTTP_STATUS"
               docker compose logs --tail=200 nginx
               docker compose logs --tail=200 django
               exit 1
               ;;
           esac
 
-          echo "Recent FastAPI logs"
-
-          docker compose logs --tail=150 fastapi
-
-          echo "Recent Django logs"
-
-          docker compose logs --tail=100 django
-
-          echo "Cleaning unused Docker images"
-
+          docker compose logs --tail=100 fastapi
           docker image prune -f
 
-          echo "MediMind deployment completed successfully"
+          echo "Deployment completed successfully"
           SCRIPT
           )
 
@@ -476,82 +173,3 @@ jobs:
 
           echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
           echo "Deployment command ID: $COMMAND_ID"
-
-      • name: Wait for deployment result
-        shell: bash
-        env:
-          COMMAND_ID: ${{ steps.deploy.outputs.command_id }}
-          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-        run: |
-          set -euo pipefail
-
-          for attempt in $(seq 1 120); do
-            STATUS=$(aws ssm get-command-invocation \
-              --command-id "$COMMAND_ID" \
-              --instance-id "$EC2_INSTANCE_ID" \
-              --query "Status" \
-              --output text 2>/dev/null || echo "Pending")
-
-            echo "Attempt $attempt: $STATUS"
-
-            case "$STATUS" in
-              Success)
-                echo "Deployment succeeded"
-
-                echo "Standard output"
-
-                aws ssm get-command-invocation \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id "$EC2_INSTANCE_ID" \
-                  --query "StandardOutputContent" \
-                  --output text
-
-                exit 0
-                ;;
-
-              Failed|Cancelled|TimedOut)
-                echo "Deployment failed with status: $STATUS"
-
-                echo "Standard output"
-
-                aws ssm get-command-invocation \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id "$EC2_INSTANCE_ID" \
-                  --query "StandardOutputContent" \
-                  --output text || true
-
-                echo "Standard error"
-
-                aws ssm get-command-invocation \
-                  --command-id "$COMMAND_ID" \
-                  --instance-id "$EC2_INSTANCE_ID" \
-                  --query "StandardErrorContent" \
-                  --output text || true
-
-                exit 1
-                ;;
-
-              Pending|InProgress|Delayed)
-                sleep 10
-                ;;
-
-              *)
-                echo "Unexpected status: $STATUS"
-                sleep 10
-                ;;
-            esac
-          done
-
-          echo "Deployment did not finish within the expected time"
-
-          aws ssm get-command-invocation \
-            --command-id "$COMMAND_ID" \
-            --instance-id "$EC2_INSTANCE_ID" \
-            --query "{
-              Status:Status,
-              Output:StandardOutputContent,
-              Error:StandardErrorContent
-            }" \
-            --output json || true
-
-          exit 1
