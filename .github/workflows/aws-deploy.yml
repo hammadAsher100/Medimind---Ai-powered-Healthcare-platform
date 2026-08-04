@@ -1,9 +1,304 @@
+name: AWS CI CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: medimind-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  COMPOSE_DIRECTORY: medimind-ai
+  DOCKERHUB_NAMESPACE: hammadasher
+
+jobs:
+  validate:
+    name: Validate Application
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify required deployment files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "${COMPOSE_DIRECTORY}/docker-compose.yml"
+          test -f "${COMPOSE_DIRECTORY}/.env.example"
+          test -f "${COMPOSE_DIRECTORY}/docker/fastapi.Dockerfile"
+          test -f "${COMPOSE_DIRECTORY}/docker/django.Dockerfile"
+          test -f "${COMPOSE_DIRECTORY}/docker/nginx.Dockerfile"
+
+      - name: Create validation environment
+        working-directory: ${{ env.COMPOSE_DIRECTORY }}
+        shell: bash
+        run: cp .env.example .env
+
+      - name: Validate Docker Compose
+        working-directory: ${{ env.COMPOSE_DIRECTORY }}
+        shell: bash
+        run: docker compose config --quiet
+
+  build-and-push:
+    name: Build and Push Images
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: production
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Docker Hub credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ secrets.DOCKER_USERNAME }}"
+          test -n "${{ secrets.DOCKERHUB_TOKEN }}"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push FastAPI image
+        uses: docker/build-push-action@v6
+        with:
+          context: medimind-ai
+          file: medimind-ai/docker/fastapi.Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-fastapi:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-fastapi:${{ github.sha }}
+          cache-from: type=gha,scope=medimind-fastapi
+          cache-to: type=gha,mode=max,scope=medimind-fastapi
+
+      - name: Build and push Django image
+        uses: docker/build-push-action@v6
+        with:
+          context: medimind-ai
+          file: medimind-ai/docker/django.Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-django:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-django:${{ github.sha }}
+          cache-from: type=gha,scope=medimind-django
+          cache-to: type=gha,mode=max,scope=medimind-django
+
+      - name: Build and push Nginx image
+        uses: docker/build-push-action@v6
+        with:
+          context: medimind-ai
+          file: medimind-ai/docker/nginx.Dockerfile
+          push: true
+          tags: |
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-nginx:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-nginx:${{ github.sha }}
+          cache-from: type=gha,scope=medimind-nginx
+          cache-to: type=gha,mode=max,scope=medimind-nginx
+
+  deploy-to-ec2:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push
+    environment: production
+
+    steps:
+      - name: Verify deployment configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "${{ vars.AWS_ROLE_ARN }}"
+          test -n "${{ vars.AWS_REGION }}"
+          test -n "${{ vars.EC2_INSTANCE_ID }}"
+          test -n "${{ vars.S3_BUCKET }}"
+          test -n "${{ vars.S3_PREFIX }}"
+
+      - name: Configure AWS credentials through OIDC
+        uses: aws-actions/configure-aws-credentials@v5
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          role-session-name: medimind-github-deployment
+
+      - name: Verify AWS identity
+        shell: bash
+        run: aws sts get-caller-identity
+
+      - name: Verify EC2 Systems Manager connection
+        shell: bash
+        env:
+          AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+        run: |
+          set -euo pipefail
+          STATUS=$(aws ssm describe-instance-information \
+            --region "$AWS_DEPLOY_REGION" \
+            --filters "Key=InstanceIds,Values=$EC2_INSTANCE_ID" \
+            --query "InstanceInformationList[0].PingStatus" \
+            --output text)
+          echo "Systems Manager status: $STATUS"
+          test "$STATUS" = "Online"
+
+      - name: Send deployment command
+        id: deploy
+        shell: bash
+        env:
+          AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          S3_BUCKET: ${{ vars.S3_BUCKET }}
+          S3_PREFIX: ${{ vars.S3_PREFIX }}
+          DEPLOYED_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+
+          DEPLOY_SCRIPT=$(cat <<'SCRIPT'
+          set -euxo pipefail
+
+          export HOME=/root
+          export USER=root
+          export AWS_REGION="__AWS_REGION__"
+          export AWS_DEFAULT_REGION="__AWS_REGION__"
+
+          APP_ROOT="/opt/medimind/app"
+          COMPOSE_DIR="$APP_ROOT/medimind-ai"
+          MODEL_DIR="/opt/medimind/models"
+          ENV_BACKUP="/tmp/medimind-production.env"
+
+          mkdir -p "$APP_ROOT" "$MODEL_DIR"
+          chown -R ec2-user:ec2-user /opt/medimind
+          git config --system --add safe.directory "$APP_ROOT" || true
+
+          if [ ! -d "$APP_ROOT/.git" ]; then
+            rm -rf "$APP_ROOT"
+            git clone https://github.com/hammadAsher100/Medimind---Ai-powered-Healthcare-platform.git "$APP_ROOT"
+          fi
+
+          if [ -f "$COMPOSE_DIR/.env" ]; then
+            cp "$COMPOSE_DIR/.env" "$ENV_BACKUP"
+            chmod 600 "$ENV_BACKUP"
+          fi
+
+          cd "$APP_ROOT"
+          git fetch origin main
+          git reset --hard origin/main
+          git clean -fd
+
+          if [ -f "$ENV_BACKUP" ]; then
+            cp "$ENV_BACKUP" "$COMPOSE_DIR/.env"
+            chmod 600 "$COMPOSE_DIR/.env"
+          fi
+
+          test -f "$COMPOSE_DIR/.env"
+          git log -1 --oneline
+
+          S3_OBJECT_COUNT=$(aws s3api list-objects-v2 \
+            --region "$AWS_REGION" \
+            --bucket "__S3_BUCKET__" \
+            --prefix "__S3_PREFIX__/" \
+            --query "length(Contents)" \
+            --output text)
+
+          echo "S3 object count: $S3_OBJECT_COUNT"
+          test "$S3_OBJECT_COUNT" != "None"
+          test "$S3_OBJECT_COUNT" -ge 10
+
+          aws s3 sync \
+            "s3://__S3_BUCKET__/__S3_PREFIX__/" \
+            "$MODEL_DIR/" \
+            --region "$AWS_REGION"
+
+          find "$MODEL_DIR" -type d -exec chmod 755 {} \;
+          find "$MODEL_DIR" -type f -exec chmod 644 {} \;
+
+          for disease in diabetes heart kidney stroke; do
+            test -r "$MODEL_DIR/$disease/model.joblib"
+            test -r "$MODEL_DIR/$disease/scaler.joblib"
+            test -r "$MODEL_DIR/$disease/feature_columns.json"
+          done
+
+          test -r "$MODEL_DIR/pneumonia/cnn_pneumonia.h5"
+
+          cd "$COMPOSE_DIR"
+          chmod 600 .env
+          docker compose config --quiet
+          docker compose pull
+          docker compose up -d --force-recreate --remove-orphans
+
+          sleep 75
+          docker compose ps -a
+
+          docker compose exec -T fastapi sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
+
+          FASTAPI_CONTAINER=$(docker compose ps -q fastapi)
+          test -n "$FASTAPI_CONTAINER"
+          test "$(docker inspect --format='{{.State.Running}}' "$FASTAPI_CONTAINER")" = "true"
+          test "$(docker inspect --format='{{.State.OOMKilled}}' "$FASTAPI_CONTAINER")" = "false"
+
+          HTTP_STATUS=$(curl \
+            --silent \
+            --output /dev/null \
+            --write-out "%{http_code}" \
+            --retry 12 \
+            --retry-delay 5 \
+            --max-time 30 \
+            http://localhost/)
+
+          echo "Application HTTP status: $HTTP_STATUS"
+
+          case "$HTTP_STATUS" in
+            200|301|302)
+              ;;
+            *)
+              docker compose logs --tail=200 nginx
+              docker compose logs --tail=200 django
+              exit 1
+              ;;
+          esac
+
+          docker compose logs --tail=100 fastapi
+          docker image prune -f
+          echo "Deployment completed successfully"
+          SCRIPT
+          )
+
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__AWS_REGION__/${AWS_DEPLOY_REGION}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_BUCKET__/${S3_BUCKET}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_PREFIX__/${S3_PREFIX}}"
+
+          PARAMETERS=$(jq -n --arg command "$DEPLOY_SCRIPT" '{commands: [$command]}')
+
+          COMMAND_ID=$(aws ssm send-command \
+            --region "$AWS_DEPLOY_REGION" \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy MediMind commit $DEPLOYED_COMMIT" \
+            --timeout-seconds 1800 \
+            --parameters "$PARAMETERS" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "command_id=$COMMAND_ID" >> "$GITHUB_OUTPUT"
+          echo "Deployment command ID: $COMMAND_ID"
+
       - name: Wait for deployment result
         shell: bash
         env:
+          AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
           COMMAND_ID: ${{ steps.deploy.outputs.command_id }}
           EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
-          AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
         run: |
           set -euo pipefail
 
@@ -19,52 +314,39 @@
 
             case "$STATUS" in
               Success)
-                echo "Deployment succeeded"
-
                 aws ssm get-command-invocation \
                   --region "$AWS_DEPLOY_REGION" \
                   --command-id "$COMMAND_ID" \
                   --instance-id "$EC2_INSTANCE_ID" \
                   --query "StandardOutputContent" \
                   --output text
-
                 exit 0
                 ;;
-
               Failed|Cancelled|TimedOut)
-                echo "Deployment failed with status: $STATUS"
-
                 echo "Standard output"
-
                 aws ssm get-command-invocation \
                   --region "$AWS_DEPLOY_REGION" \
                   --command-id "$COMMAND_ID" \
                   --instance-id "$EC2_INSTANCE_ID" \
                   --query "StandardOutputContent" \
                   --output text || true
-
                 echo "Standard error"
-
                 aws ssm get-command-invocation \
                   --region "$AWS_DEPLOY_REGION" \
                   --command-id "$COMMAND_ID" \
                   --instance-id "$EC2_INSTANCE_ID" \
                   --query "StandardErrorContent" \
                   --output text || true
-
                 exit 1
                 ;;
-
               Pending|InProgress|Delayed)
                 sleep 10
                 ;;
-
               *)
-                echo "Unexpected status: $STATUS"
                 sleep 10
                 ;;
             esac
           done
 
-          echo "Deployment timed out"
+          echo "Deployment did not finish within the expected time"
           exit 1
