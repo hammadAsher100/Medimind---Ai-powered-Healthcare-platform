@@ -82,8 +82,8 @@ services:
     restart: unless-stopped
     env_file: .env
     environment:
-      MODEL_BASE_DIR: /opt/medimind/models
-      CNN_PNEUMONIA_MODEL_PATH: /opt/medimind/models/pneumonia/resnet50_pneumonia.keras
+     MODEL_BASE_DIR: /opt/medimind/models
+     CNN_PNEUMONIA_MODEL_PATH: ${CNN_PNEUMONIA_MODEL_PATH:-/opt/medimind/models/pneumonia/cnn_pneumonia.h5}
     volumes:
       - /opt/medimind/models:/opt/medimind/models:ro
     depends_on:
