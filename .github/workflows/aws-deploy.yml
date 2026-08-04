@@ -1,4 +1,4 @@
-name: AWS CI/CD Pipeline
+name: AWS CI CD Pipeline
 
 on:
   push:
@@ -16,6 +16,7 @@ permissions:
 
 env:
   COMPOSE_DIRECTORY: medimind-ai
+  DOCKERHUB_NAMESPACE: hammadasher
 
 jobs:
   validate:
@@ -24,7 +25,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Create validation environment
         working-directory: ${{ env.COMPOSE_DIRECTORY }}
@@ -42,50 +43,65 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+
+      - name: Verify Docker Hub credentials
+        shell: bash
+        run: |
+          if [ -z "${{ secrets.DOCKER_USERNAME }}" ]; then
+            echo "DOCKER_USERNAME is missing from production environment secrets"
+            exit 1
+          fi
+
+          if [ -z "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
+            echo "DOCKERHUB_TOKEN is missing from production environment secrets"
+            exit 1
+          fi
+
+          echo "Docker Hub credentials are available"
 
       - name: Log in to Docker Hub
-        uses: docker/login-action@v3
+        uses: docker/login-action@v4
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_TOKEN }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@v4
 
       - name: Build and push FastAPI image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: medimind-ai
           file: medimind-ai/docker/fastapi.Dockerfile
           push: true
           tags: |
-            hammadasher/medimind-fastapi:latest
-            hammadasher/medimind-fastapi:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-fastapi:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-fastapi:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Build and push Django image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: medimind-ai
           file: medimind-ai/docker/django.Dockerfile
           push: true
           tags: |
-            hammadasher/medimind-django:latest
-            hammadasher/medimind-django:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-django:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-django:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Build and push Nginx image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           context: medimind-ai
           file: medimind-ai/docker/nginx.Dockerfile
           push: true
           tags: |
-            hammadasher/medimind-nginx:latest
-            hammadasher/medimind-nginx:${{ github.sha }}
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-nginx:latest
+            ${{ env.DOCKERHUB_NAMESPACE }}/medimind-nginx:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -102,22 +118,27 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Verify EC2 is registered with Systems Manager
+      - name: Verify AWS identity
+        run: aws sts get-caller-identity
+
+      - name: Verify EC2 Systems Manager connection
+        shell: bash
         run: |
           STATUS=$(aws ssm describe-instance-information \
             --filters "Key=InstanceIds,Values=${{ vars.EC2_INSTANCE_ID }}" \
             --query "InstanceInformationList[0].PingStatus" \
             --output text)
 
-          echo "SSM status: $STATUS"
+          echo "Systems Manager status: $STATUS"
 
           if [ "$STATUS" != "Online" ]; then
-            echo "EC2 instance is not online in Systems Manager."
+            echo "EC2 is not online in AWS Systems Manager"
             exit 1
           fi
 
       - name: Send deployment command
         id: deploy
+        shell: bash
         run: |
           COMMAND_ID=$(aws ssm send-command \
             --instance-ids "${{ vars.EC2_INSTANCE_ID }}" \
@@ -136,16 +157,17 @@ jobs:
               "git fetch origin main",
               "git reset --hard origin/main",
               "aws s3 sync s3://${{ vars.S3_BUCKET }}/${{ vars.S3_PREFIX }}/ $MODEL_DIR/ --delete",
-              "find $MODEL_DIR -type d -exec chmod 755 {} \\;",
-              "find $MODEL_DIR -type f -exec chmod 644 {} \\;",
+              "find $MODEL_DIR -type d -exec chmod 755 {} \u005c\u005c;",
+              "find $MODEL_DIR -type f -exec chmod 644 {} \u005c\u005c;",
               "cd $COMPOSE_DIR",
               "test -f .env",
               "docker compose config --quiet",
               "docker compose pull",
-              "docker compose up -d --remove-orphans",
-              "sleep 40",
+              "docker compose up -d --force-recreate --remove-orphans",
+              "sleep 60",
               "docker compose ps -a",
-              "docker compose exec -T fastapi test -r /opt/medimind/models/pneumonia/resnet50_pneumonia.keras",
+              "docker compose exec -T fastapi test -r /opt/medimind/models/pneumonia/cnn_pneumonia.h5",
+              "docker compose exec -T fastapi sh -c \"test \\\"$CNN_PNEUMONIA_MODEL_PATH\\\" = \\\"/opt/medimind/models/pneumonia/cnn_pneumonia.h5\\\"\"",
               "curl --fail --retry 10 --retry-delay 5 --max-time 20 http://localhost/",
               "docker image prune -f"
             ]' \
@@ -156,6 +178,7 @@ jobs:
           echo "Deployment command ID: $COMMAND_ID"
 
       - name: Wait for deployment result
+        shell: bash
         run: |
           COMMAND_ID="${{ steps.deploy.outputs.command_id }}"
 
@@ -177,6 +200,7 @@ jobs:
                   --output text
                 exit 0
                 ;;
+
               Failed|Cancelled|TimedOut)
                 aws ssm get-command-invocation \
                   --command-id "$COMMAND_ID" \
@@ -190,5 +214,5 @@ jobs:
             sleep 10
           done
 
-          echo "Deployment did not complete within the expected time."
+          echo "Deployment did not finish within the expected time"
           exit 1

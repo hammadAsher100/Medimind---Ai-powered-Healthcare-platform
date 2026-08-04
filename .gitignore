@@ -135,3 +135,6 @@ report.md
 view_json.py
 *.tmp.txt
 *.tmp.json
+
+.env.*
+!.env.example
