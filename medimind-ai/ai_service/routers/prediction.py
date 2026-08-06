@@ -2,12 +2,19 @@ from __future__ import annotations
 
 import json
 import os
+import time
+import logging
+import traceback
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
 from llm.provider import LLMProvider
 from mlflow_utils.tracking import log_prediction
+from model_registry import get_disease_model
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 if os.environ.get("DISABLE_ML", "False").lower() == "true":
     np = None
@@ -27,14 +34,12 @@ DISEASE_FIELDS = {
     "stroke": ["age", "hypertension", "heart_disease", "ever_married", "work_type", "residence_type", "avg_glucose_level", "bmi", "smoking_status", "gender"],
 }
 
-
 def _risk_level(percent: float) -> str:
     if percent >= 70:
         return "High"
     if percent >= 40:
         return "Medium"
     return "Low"
-
 
 def _heuristic_risk(disease: str, payload: dict[str, Any]) -> float:
     score = 0.15
@@ -55,15 +60,18 @@ def _heuristic_risk(disease: str, payload: dict[str, Any]) -> float:
         score += max(0, float(payload.get("age", 45)) - 55) / 100
         score += 0.12 if payload.get("hypertension") else 0
         score += 0.12 if payload.get("heart_disease") else 0
-    return max(0.02, min(0.98, score)) * 100
-
+    return float(max(0.02, min(0.98, score)) * 100)
 
 def _prepare_frame(disease: str, payload: dict[str, Any], feature_columns: list[str]) -> pd.DataFrame:
+    t0 = time.time()
     if pd is None:
         raise RuntimeError("ML dependencies are disabled.")
     missing = [field for field in DISEASE_FIELDS[disease] if field not in payload]
     if missing:
         raise HTTPException(status_code=422, detail={"missing_fields": missing})
+    logger.info(f"[{disease}] Validation took {time.time() - t0:.4f}s")
+    
+    t1 = time.time()
     df = pd.DataFrame([payload])
     df = FEATURE_ENGINEERING[disease](df)
     df = pd.get_dummies(df)
@@ -72,23 +80,35 @@ def _prepare_frame(disease: str, payload: dict[str, Any], feature_columns: list[
             df[column] = 0
     if feature_columns:
         df = df[feature_columns]
-    return df.fillna(0)
+    result = df.fillna(0)
+    logger.info(f"[{disease}] Preprocessing took {time.time() - t1:.4f}s")
+    return result
 
-
-def _predict_with_model(bundle: dict, frame: pd.DataFrame) -> tuple[int, float]:
+def _predict_with_model(disease: str, bundle: dict, frame: pd.DataFrame) -> tuple[int, float]:
     model = bundle.get("model")
     scaler = bundle.get("scaler")
     if model is None:
         raise RuntimeError("Model artifact is missing.")
+        
+    t0 = time.time()
     data = scaler.transform(frame) if scaler is not None else frame
+    logger.info(f"[{disease}] Scaling took {time.time() - t0:.4f}s")
+    
+    t1 = time.time()
     if hasattr(model, "predict_proba"):
         probability = float(model.predict_proba(data)[0][1])
+        prediction = int(probability >= 0.5)
+        logger.info(f"[{disease}] Probability calculation and prediction took {time.time() - t1:.4f}s")
     else:
-        probability = float(model.predict(data)[0])
-    return int(probability >= 0.5), probability * 100
+        prediction_val = model.predict(data)[0]
+        prediction = int(prediction_val)
+        probability = float(prediction_val * 100.0)
+        logger.info(f"[{disease}] Prediction took {time.time() - t1:.4f}s")
+        
+    return int(prediction), float(probability * 100 if hasattr(model, "predict_proba") else probability)
 
-
-def _shap_factors(bundle: dict, frame: pd.DataFrame, risk_percentage: float) -> list[dict]:
+def _shap_factors(disease: str, bundle: dict, frame: pd.DataFrame, risk_percentage: float) -> list[dict]:
+    t0 = time.time()
     explainer = bundle.get("shap_explainer")
     scaler = bundle.get("scaler")
     values = None
@@ -99,26 +119,28 @@ def _shap_factors(bundle: dict, frame: pd.DataFrame, risk_percentage: float) -> 
             if isinstance(raw, list):
                 raw = raw[-1]
             values = np.asarray(raw)[0]
-            # Handle 3D SHAP values (n_samples, n_features, n_classes) → take positive class
             if isinstance(values, np.ndarray) and values.ndim > 1:
                 values = values[:, -1] if values.ndim == 2 else values.ravel()
-    except Exception:
+    except Exception as e:
+        logger.warning(f"[{disease}] SHAP calculation error: {e}")
         values = None
+        
     if values is None:
         numeric = frame.iloc[0].astype(float)
         denom = float(np.abs(numeric).sum()) or 1.0
         values = (numeric / denom * risk_percentage).to_numpy()
+        
     factors = []
     for feature, contribution in sorted(zip(frame.columns, values), key=lambda item: abs(item[1]), reverse=True)[:6]:
         factors.append(
             {
                 "feature": feature.replace("_", " ").title(),
-                "contribution": round(abs(float(contribution)), 3),
+                "contribution": float(round(abs(float(contribution)), 3)),
                 "direction": "increases_risk" if float(contribution) >= 0 else "decreases_risk",
             }
         )
+    logger.info(f"[{disease}] SHAP took {time.time() - t0:.4f}s")
     return factors
-
 
 def _preview_factors(disease: str, payload: dict[str, Any], risk_percentage: float) -> list[dict]:
     factors = []
@@ -134,12 +156,11 @@ def _preview_factors(disease: str, payload: dict[str, Any], risk_percentage: flo
     return [
         {
             "feature": field.replace("_", " ").title(),
-            "contribution": round((value / total) * risk_percentage, 3),
+            "contribution": float(round((value / total) * risk_percentage, 3)),
             "direction": "increases_risk",
         }
         for field, value in factors
     ]
-
 
 @router.post("/predict/{disease}")
 async def predict(disease: str, payload: dict, request: Request):
@@ -147,54 +168,78 @@ async def predict(disease: str, payload: dict, request: Request):
         disease = disease.lower()
         if disease not in DISEASE_FIELDS:
             raise HTTPException(status_code=404, detail="Unsupported disease model.")
+            
+        t_val = time.time()
         missing = [field for field in DISEASE_FIELDS[disease] if field not in payload]
         if missing:
             raise HTTPException(status_code=422, detail={"missing_fields": missing})
+        logger.info(f"[{disease}] Initial validation took {time.time() - t_val:.4f}s")
 
-        bundle = request.app.state.models.get(disease, {})
+        bundle = get_disease_model(disease)
+        enable_shap = os.environ.get("ENABLE_SHAP_EXPLANATIONS", "True").lower() == "true"
+        explanation_available = enable_shap
+        
         if os.environ.get("DISABLE_ML", "False").lower() == "true":
             risk_percentage = _heuristic_risk(disease, payload)
             prediction = int(risk_percentage >= 50)
-            top_factors = _preview_factors(disease, payload, risk_percentage)
+            top_factors = _preview_factors(disease, payload, risk_percentage) if enable_shap else []
         else:
             feature_columns = bundle.get("feature_columns") or []
             frame = _prepare_frame(disease, payload, feature_columns)
             try:
-                prediction, risk_percentage = _predict_with_model(bundle, frame)
+                prediction, risk_percentage = _predict_with_model(disease, bundle, frame)
             except RuntimeError:
                 risk_percentage = _heuristic_risk(disease, payload)
                 prediction = int(risk_percentage >= 50)
-            top_factors = _shap_factors(bundle, frame, risk_percentage)
-        provider = LLMProvider()
-        prompt_payload = json.dumps({"disease": disease, "risk_percentage": risk_percentage, "top_factors": top_factors}, indent=2)
-        try:
-            explanation_text = provider.chat(
-                [
-                    {"role": "system", "content": "Explain ML disease-risk drivers in simple, cautious patient language. Do not diagnose."},
-                    {"role": "user", "content": prompt_payload},
-                ]
-            )
-            ai_recommendation = provider.chat(
-                [
-                    {"role": "system", "content": "Give educational, non-diagnostic next-step recommendations for a patient to discuss with a clinician."},
-                    {"role": "user", "content": prompt_payload},
-                ]
-            )
-        except Exception:
-            explanation_text = "The listed factors contributed most to this model estimate. This is educational and not a diagnosis."
-            ai_recommendation = "Discuss these results with a qualified healthcare provider, especially if symptoms or abnormal lab values are present."
+            
+            if enable_shap:
+                top_factors = _shap_factors(disease, bundle, frame, risk_percentage)
+            else:
+                top_factors = []
+
+        if enable_shap:
+            provider = LLMProvider()
+            prompt_payload = json.dumps({"disease": disease, "risk_percentage": risk_percentage, "top_factors": top_factors}, indent=2)
+            try:
+                explanation_text = provider.chat(
+                    [
+                        {"role": "system", "content": "Explain ML disease-risk drivers in simple, cautious patient language. Do not diagnose."},
+                        {"role": "user", "content": prompt_payload},
+                    ]
+                )
+                ai_recommendation = provider.chat(
+                    [
+                        {"role": "system", "content": "Give educational, non-diagnostic next-step recommendations for a patient to discuss with a clinician."},
+                        {"role": "user", "content": prompt_payload},
+                    ]
+                )
+            except Exception:
+                explanation_text = "The listed factors contributed most to this model estimate. This is educational and not a diagnosis."
+                ai_recommendation = "Discuss these results with a qualified healthcare provider, especially if symptoms or abnormal lab values are present."
+        else:
+            explanation_text = "SHAP explanations are currently disabled."
+            ai_recommendation = "Discuss these results with a qualified healthcare provider."
 
         result = {
-            "disease": disease,
-            "risk_percentage": round(risk_percentage, 1),
-            "risk_level": _risk_level(risk_percentage),
-            "prediction": prediction,
-            "shap_explanation": {"top_factors": top_factors, "explanation_text": explanation_text},
-            "ai_recommendation": ai_recommendation,
+            "disease": str(disease),
+            "risk_percentage": float(round(risk_percentage, 1)),
+            "risk_level": str(_risk_level(risk_percentage)),
+            "prediction": int(prediction),
+            "ai_recommendation": str(ai_recommendation),
+            "explanation_available": bool(explanation_available)
         }
+        
+        if enable_shap:
+            result["shap_explanation"] = {
+                "top_factors": top_factors, 
+                "explanation_text": str(explanation_text)
+            }
+            
         log_prediction(disease, payload, result)
         return result
+        
     except HTTPException:
         raise
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc)) from exc
+        logger.error(f"Unexpected error in prediction pipeline: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail="An unexpected error occurred during prediction.")
