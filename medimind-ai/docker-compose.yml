@@ -49,28 +49,34 @@ services:
       context: .
       dockerfile: docker/django.Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-medimind.settings.development}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      FASTAPI_URL: http://fastapi:8001
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-False}
       CSRF_COOKIE_SECURE: ${CSRF_COOKIE_SECURE:-False}
-    command: >
-      sh -c "python manage.py migrate &&
-             python manage.py collectstatic --noinput &&
-             gunicorn medimind.wsgi:application
-             --bind 0.0.0.0:8000
-             --workers 3
-             --timeout 120"
+    command: ["sh", "-c", "python manage.py migrate && python manage.py collectstatic --noinput && exec gunicorn medimind.wsgi:application --bind=0.0.0.0:8000 --workers=2 --timeout=180"]
     volumes:
       - django_static:/app/staticfiles
       - django_media:/app/media
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1',8000),10); s.close()"]
+      interval: 15s
+      timeout: 10s
+      retries: 15
+      start_period: 60s
     networks:
       - medimind_network
 
@@ -80,10 +86,28 @@ services:
       context: .
       dockerfile: docker/fastapi.Dockerfile
     restart: unless-stopped
-    env_file: .env
+    env_file:
+      - .env
     environment:
-     MODEL_BASE_DIR: /opt/medimind/models
-     CNN_PNEUMONIA_MODEL_PATH: ${CNN_PNEUMONIA_MODEL_PATH:-/opt/medimind/models/pneumonia/cnn_pneumonia.h5}
+      MODEL_BASE_DIR: /opt/medimind/models
+      CNN_PNEUMONIA_MODEL_PATH: ${CNN_PNEUMONIA_MODEL_PATH:-/opt/medimind/models/pneumonia/cnn_pneumonia.h5}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      QDRANT_HOST: qdrant
+      QDRANT_PORT: "6333"
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      CUDA_VISIBLE_DEVICES: ""
+      TF_CPP_MIN_LOG_LEVEL: "2"
+      TF_ENABLE_ONEDNN_OPTS: "0"
+      OMP_NUM_THREADS: "1"
+      OPENBLAS_NUM_THREADS: "1"
+      MKL_NUM_THREADS: "1"
+      NUMEXPR_NUM_THREADS: "1"
+      ENABLE_SHAP_EXPLANATIONS: "False"
+    command: ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
     volumes:
       - /opt/medimind/models:/opt/medimind/models:ro
     depends_on:
@@ -91,6 +115,12 @@ services:
         condition: service_healthy
       qdrant:
         condition: service_started
+    healthcheck:
+      test: ["CMD", "python", "-c", "import socket; s=socket.create_connection(('127.0.0.1',8001),10); s.close()"]
+      interval: 20s
+      timeout: 15s
+      retries: 20
+      start_period: 180s
     networks:
       - medimind_network
 
