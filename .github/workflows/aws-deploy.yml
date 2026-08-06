@@ -300,6 +300,14 @@ jobs:
             sleep 10
           done
 
+          echo "Checking production inference configuration"
+          SHAP_SETTING=$(docker compose exec -T fastapi printenv ENABLE_SHAP_EXPLANATIONS)
+          echo "ENABLE_SHAP_EXPLANATIONS=$SHAP_SETTING"
+          if [ "$SHAP_SETTING" != "False" ] && [ "$SHAP_SETTING" != "false" ]; then
+            echo "SHAP must be disabled in production"
+            exit 1
+          fi
+
           echo "Starting Nginx"
           docker compose up -d --force-recreate nginx
 
@@ -311,6 +319,105 @@ jobs:
             docker compose exec -T fastapi test -r "/opt/medimind/models/$disease/scaler.joblib"
             docker compose exec -T fastapi test -r "/opt/medimind/models/$disease/feature_columns.json"
           done
+
+          echo "Running deployed model smoke tests"
+          docker compose exec -T fastapi python - <<'PY'
+import json
+import urllib.request
+
+tests = {
+    "diabetes": {
+        "glucose": 120,
+        "blood_pressure": 80,
+        "skin_thickness": 25,
+        "insulin": 90,
+        "bmi": 28.5,
+        "diabetes_pedigree_function": 0.45,
+        "age": 35,
+        "pregnancies": 2
+    },
+    "heart": {
+        "age": 52,
+        "sex": 1,
+        "chest_pain_type": 2,
+        "resting_bp": 130,
+        "cholesterol": 220,
+        "fasting_blood_sugar": 0,
+        "resting_ecg": 1,
+        "max_heart_rate": 150,
+        "exercise_angina": 0,
+        "st_depression": 1.2,
+        "st_slope": 1,
+        "num_major_vessels": 0,
+        "thal": 2
+    },
+    "kidney": {
+        "age": 45,
+        "blood_pressure": 80,
+        "specific_gravity": 1.02,
+        "albumin": 0,
+        "sugar": 0,
+        "red_blood_cells": "normal",
+        "pus_cell": "normal",
+        "pus_cell_clumps": "notpresent",
+        "bacteria": "notpresent",
+        "blood_glucose_random": 110,
+        "blood_urea": 30,
+        "serum_creatinine": 1.0,
+        "sodium": 140,
+        "potassium": 4.5,
+        "hemoglobin": 14.5,
+        "packed_cell_volume": 44,
+        "white_blood_cell_count": 7800,
+        "red_blood_cell_count": 5.0,
+        "hypertension": "no",
+        "diabetes_mellitus": "no",
+        "coronary_artery_disease": "no",
+        "appetite": "good",
+        "pedal_edema": "no",
+        "anemia": "no"
+    },
+    "stroke": {
+        "age": 50,
+        "hypertension": 0,
+        "heart_disease": 0,
+        "ever_married": "Yes",
+        "work_type": "Private",
+        "residence_type": "Urban",
+        "avg_glucose_level": 105.5,
+        "bmi": 27.2,
+        "smoking_status": "never smoked",
+        "gender": "Male"
+    }
+}
+
+for disease, payload in tests.items():
+    request = urllib.request.Request(
+        f"http://127.0.0.1:8001/predict/{disease}",
+        data=json.dumps(payload).encode(),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    with urllib.request.urlopen(request, timeout=60) as response:
+        body = json.loads(response.read().decode())
+
+    assert response.status == 200
+    assert body["disease"] == disease
+    assert "risk_percentage" in body
+    assert "prediction" in body
+
+    print(
+        disease,
+        "passed",
+        "risk=",
+        body["risk_percentage"],
+        "prediction=",
+        body["prediction"]
+    )
+
+print("All deployed model smoke tests passed")
+PY
 
           echo "Checking application"
           HTTP_STATUS="000"
