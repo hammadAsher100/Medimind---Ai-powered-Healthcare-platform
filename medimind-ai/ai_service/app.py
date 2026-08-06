@@ -6,7 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
-from model_registry import load_all_models
+
 from rag.embeddings.cohere_embedder import CohereEmbedder
 from rag.vector_store.qdrant_store import QdrantStore
 from cnn.registry import CNNModelRegistry
@@ -26,7 +26,7 @@ load_dotenv()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.models = load_all_models()
+
     app.state.cnn_registry = CNNModelRegistry()
     if os.environ.get("DISABLE_CNN", "False").lower() == "true":
         pass

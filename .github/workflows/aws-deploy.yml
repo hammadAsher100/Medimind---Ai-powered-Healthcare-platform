@@ -239,42 +239,103 @@ jobs:
           cd "$COMPOSE_DIR"
           chmod 600 .env
           docker compose config --quiet
-          docker compose pull
-          docker compose up -d --force-recreate --remove-orphans
+          echo "Disk and Docker usage before cleanup"
+          df -h /
+          docker system df || true
 
-          sleep 75
-          docker compose ps -a
+          echo "Cleaning unused images and build cache"
+          docker image prune -a -f || true
+          docker builder prune -a -f || true
 
+          echo "Pulling application images"
+          docker compose pull django fastapi nginx
+
+          echo "Ensuring core data services are running"
+          docker compose up -d postgres qdrant
+
+          echo "Waiting for PostgreSQL"
+          for attempt in $(seq 1 30); do
+            POSTGRES_CONTAINER=$(docker compose ps -q postgres)
+            POSTGRES_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$POSTGRES_CONTAINER" 2>/dev/null || echo missing)
+            echo "PostgreSQL attempt $attempt: $POSTGRES_HEALTH"
+            [ "$POSTGRES_HEALTH" = "healthy" ] && break
+            [ "$attempt" -eq 30 ] && docker compose logs --tail=200 postgres && exit 1
+            sleep 5
+          done
+
+          echo "Deploying application services"
+          docker compose up -d --force-recreate django fastapi
+
+          echo "Waiting for Django and FastAPI"
+          for attempt in $(seq 1 48); do
+            DJANGO_CONTAINER=$(docker compose ps -q django)
+            FASTAPI_CONTAINER=$(docker compose ps -q fastapi)
+
+            DJANGO_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$DJANGO_CONTAINER" 2>/dev/null || echo missing)
+            FASTAPI_HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$FASTAPI_CONTAINER" 2>/dev/null || echo missing)
+
+            echo "Attempt $attempt: Django=$DJANGO_HEALTH FastAPI=$FASTAPI_HEALTH"
+
+            if [ "$DJANGO_HEALTH" = "healthy" ] && [ "$FASTAPI_HEALTH" = "healthy" ]; then
+              break
+            fi
+
+            if [ "$DJANGO_HEALTH" = "unhealthy" ]; then
+              docker compose logs --tail=250 django
+              exit 1
+            fi
+
+            if [ "$FASTAPI_HEALTH" = "unhealthy" ]; then
+              docker compose logs --tail=250 fastapi
+              exit 1
+            fi
+
+            if [ "$attempt" -eq 48 ]; then
+              docker compose ps -a
+              docker compose logs --tail=250 django
+              docker compose logs --tail=250 fastapi
+              exit 1
+            fi
+
+            sleep 10
+          done
+
+          echo "Starting Nginx"
+          docker compose up -d --force-recreate nginx
+
+          echo "Checking model mount"
           docker compose exec -T fastapi sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
 
-          FASTAPI_CONTAINER=$(docker compose ps -q fastapi)
-          test -n "$FASTAPI_CONTAINER"
-          test "$(docker inspect --format='{{.State.Running}}' "$FASTAPI_CONTAINER")" = "true"
-          test "$(docker inspect --format='{{.State.OOMKilled}}' "$FASTAPI_CONTAINER")" = "false"
+          for disease in diabetes heart kidney stroke; do
+            docker compose exec -T fastapi test -r "/opt/medimind/models/$disease/model.joblib"
+            docker compose exec -T fastapi test -r "/opt/medimind/models/$disease/scaler.joblib"
+            docker compose exec -T fastapi test -r "/opt/medimind/models/$disease/feature_columns.json"
+          done
 
-          HTTP_STATUS=$(curl \
-            --silent \
-            --output /dev/null \
-            --write-out "%{http_code}" \
-            --retry 12 \
-            --retry-delay 5 \
-            --max-time 30 \
-            http://localhost/)
+          echo "Checking application"
+          HTTP_STATUS="000"
 
-          echo "Application HTTP status: $HTTP_STATUS"
+          for attempt in $(seq 1 18); do
+            HTTP_STATUS=$(curl --silent --output /dev/null --write-out "%{http_code}" --max-time 20 http://localhost/ || echo "000")
+            echo "HTTP attempt $attempt: $HTTP_STATUS"
 
-          case "$HTTP_STATUS" in
-            200|301|302)
-              ;;
-            *)
-              docker compose logs --tail=200 nginx
-              docker compose logs --tail=200 django
-              exit 1
-              ;;
-          esac
+            case "$HTTP_STATUS" in
+              200|301|302)
+                break
+                ;;
+            esac
 
-          docker compose logs --tail=100 fastapi
-          docker image prune -f
+            [ "$attempt" -eq 18 ] && docker compose logs --tail=200 nginx django && exit 1
+            sleep 10
+          done
+
+          echo "Final container status"
+          docker compose ps -a
+
+          echo "Final memory"
+          free -h
+
+          docker image prune -f || true
           echo "Deployment completed successfully"
           SCRIPT
           )
