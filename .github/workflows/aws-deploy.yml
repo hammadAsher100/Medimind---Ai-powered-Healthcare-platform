@@ -301,7 +301,7 @@ jobs:
           done
 
           echo "Checking production inference configuration"
-          SHAP_SETTING=$(docker compose exec -T fastapi printenv ENABLE_SHAP_EXPLANATIONS)
+          SHAP_SETTING=$(docker compose exec -T fastapi sh -c 'echo "$ENABLE_SHAP_EXPLANATIONS"' | tr -d '\r')
           echo "ENABLE_SHAP_EXPLANATIONS=$SHAP_SETTING"
           if [ "$SHAP_SETTING" != "False" ] && [ "$SHAP_SETTING" != "false" ]; then
             echo "SHAP must be disabled in production"
@@ -321,9 +321,11 @@ jobs:
           done
 
           echo "Running deployed model smoke tests"
-          docker compose exec -T fastapi python - <<'PY'
+          docker compose exec -T fastapi python -u - <<'PY'
 import json
 import urllib.request
+import urllib.error
+import sys
 
 tests = {
     "diabetes": {
@@ -399,8 +401,14 @@ for disease, payload in tests.items():
         method="POST"
     )
 
-    with urllib.request.urlopen(request, timeout=60) as response:
-        body = json.loads(response.read().decode())
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            body = json.loads(response.read().decode())
+    except urllib.error.HTTPError as e:
+        error_body = e.read().decode()
+        print(f"HTTPError on {disease}: {e.code} {e.reason}", file=sys.stderr)
+        print(f"Error body: {error_body}", file=sys.stderr)
+        sys.exit(1)
 
     assert response.status == 200
     assert body["disease"] == disease
