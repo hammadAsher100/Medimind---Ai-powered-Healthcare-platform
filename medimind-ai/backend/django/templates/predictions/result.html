@@ -14,6 +14,7 @@
   <div class="hero-metrics">
     <div><div class="hero-number" id="riskPercent">—%</div><span>Risk Score</span></div>
     <div><div class="hero-number" id="riskLevel">—</div><span>Risk Level</span></div>
+    <div><div class="hero-number" id="predictionOutcome">—</div><span>Model Outcome</span></div>
   </div>
   <p class="chart-kicker section-gap">Assessed on: <span id="assessedDate"></span> · Based on current health indicators</p>
 </section>
@@ -62,7 +63,12 @@
 {% block extra_js %}
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-  const result = JSON.parse(sessionStorage.getItem("prediction_result") || "{}");
+  let result = {};
+  try {
+    result = JSON.parse(sessionStorage.getItem("prediction_result") || "{}");
+  } catch (error) {
+    console.error("Stored prediction result is not valid JSON", error);
+  }
   if (!result.disease) {
     document.getElementById("missingResult").hidden = false;
     document.querySelectorAll("[data-result-content]").forEach((element) => { element.hidden = true; });
@@ -75,8 +81,15 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("resultTitle").textContent = `${disease.charAt(0).toUpperCase() + disease.slice(1)} Risk Assessment`;
   document.getElementById("riskPercent").textContent = `${Number.isFinite(risk) ? risk : "—"}%`;
   document.getElementById("riskLevel").textContent = (result.risk_level || "—").toUpperCase();
+  const predictionValue = Number(result.prediction);
+  document.getElementById("predictionOutcome").textContent = predictionValue === 1
+    ? "Elevated"
+    : predictionValue === 0 ? "Not Elevated" : "—";
   document.getElementById("assessedDate").textContent = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
-  document.getElementById("aiExplanation").textContent = result.shap_explanation?.explanation_text || "The listed factors contributed most to this model estimate.";
+  const explanationAvailable = result.explanation_available === true && Boolean(result.shap_explanation);
+  document.getElementById("aiExplanation").textContent = explanationAvailable
+    ? (result.shap_explanation.explanation_text || "Detailed factor analysis is currently unavailable.")
+    : "Detailed factor analysis is currently unavailable.";
   document.getElementById("aiRecommendation").textContent = result.ai_recommendation || "Discuss this result with a qualified healthcare provider.";
   document.getElementById("runAgain").href = `/predictions/${disease}/`;
 

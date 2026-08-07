@@ -322,6 +322,18 @@ jobs:
             exit 1
           fi
 
+          echo "Checking production Django configuration"
+          docker compose exec -T django python - <<'PY'
+          import os
+          from django.conf import settings
+
+          settings_module = os.environ.get("DJANGO_SETTINGS_MODULE")
+          print(f"DJANGO_SETTINGS_MODULE={settings_module}")
+          print(f"DEBUG={settings.DEBUG}")
+          assert settings_module == "medimind.settings.production"
+          assert settings.DEBUG is False
+          PY
+
           echo "Checking model mount"
           docker compose exec -T fastapi sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
 

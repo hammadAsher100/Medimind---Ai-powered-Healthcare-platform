@@ -52,9 +52,9 @@ services:
     env_file:
       - .env
     environment:
-      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-medimind.settings.development}
+      DJANGO_SETTINGS_MODULE: medimind.settings.production
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY}
-      DJANGO_DEBUG: ${DJANGO_DEBUG:-False}
+      DJANGO_DEBUG: "False"
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS}
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
