@@ -25,6 +25,12 @@ document.addEventListener("DOMContentLoaded", () => {
       sessionStorage.setItem("prediction_input", JSON.stringify(data));
       window.location.href = "/predictions/result/";
     } catch (error) {
+      console.error("Risk analysis request failed", {
+        disease,
+        status: error.status,
+        contentType: error.contentType,
+        error,
+      });
       notify.error(error.message || "Risk analysis failed. Check your entries and try again.");
     } finally {
       hideLoading();

@@ -36,7 +36,15 @@ const API = {
     const base = useAI ? this.aiURL : this.baseURL;
     // Always send cookies so SessionAuthentication works as fallback
     if (!useAI) options.credentials = "same-origin";
-    const response = await fetch(`${base}${endpoint}`, options);
+    let response;
+    try {
+      response = await fetch(`${base}${endpoint}`, options);
+    } catch (cause) {
+      console.error("API network request failed", { endpoint, cause });
+      const error = new Error("Unable to contact the server. Check your connection and try again.");
+      error.cause = cause;
+      throw error;
+    }
 
     // If 401 and we have a refresh token, try refreshing and retry once
     if (response.status === 401 && !options._retried && !useAI) {
@@ -56,13 +64,34 @@ const API = {
       }
     }
 
+    const contentType = (response.headers.get("Content-Type") || "").toLowerCase();
+    const isJSON = contentType.includes("application/json") || contentType.includes("+json");
     const text = await response.text();
     let payload = {};
-    if (text) {
-      try { payload = JSON.parse(text); } catch { payload = { detail: text }; }
+    if (text && isJSON) {
+      try {
+        payload = JSON.parse(text);
+      } catch (cause) {
+        console.error("API returned malformed JSON", {
+          endpoint,
+          status: response.status,
+          contentType,
+          cause,
+        });
+        const error = new Error("The server returned an invalid response. Please try again.");
+        error.status = response.status;
+        throw error;
+      }
+    } else if (text && !isJSON) {
+      console.error("API returned an unexpected non-JSON response", {
+        endpoint,
+        status: response.status,
+        contentType: contentType || "missing",
+      });
     }
+
     if (!response.ok) {
-      const detail = payload.detail;
+      const detail = isJSON ? (payload.error || payload.detail) : null;
       let message = "The request could not be completed.";
       if (typeof detail === "string") {
         message = detail;
@@ -75,6 +104,15 @@ const API = {
       }
       const error = new Error(message);
       error.payload = payload;
+      error.status = response.status;
+      error.contentType = contentType;
+      throw error;
+    }
+
+    if (text && !isJSON) {
+      const error = new Error("The server returned an invalid response. Please try again.");
+      error.status = response.status;
+      error.contentType = contentType;
       throw error;
     }
     return payload;

@@ -8,6 +8,7 @@ client = TestClient(app)
 def disable_ml(monkeypatch):
     # Force DISABLE_ML=True to avoid needing actual models during basic API tests
     monkeypatch.setenv("DISABLE_ML", "True")
+    monkeypatch.setenv("ENABLE_SHAP_EXPLANATIONS", "False")
 
 def test_predict_diabetes_valid():
     payload = {
@@ -29,6 +30,8 @@ def test_predict_diabetes_valid():
     assert "risk_percentage" in data
     assert "risk_level" in data
     assert "explanation_available" in data
+    assert data["explanation_available"] is False
+    assert "shap_explanation" not in data
 
 def test_predict_heart_valid():
     payload = {
@@ -48,7 +51,10 @@ def test_predict_heart_valid():
     }
     response = client.post("/predict/heart", json=payload)
     assert response.status_code == 200
-    assert response.json()["disease"] == "heart"
+    data = response.json()
+    assert data["disease"] == "heart"
+    assert data["explanation_available"] is False
+    assert "shap_explanation" not in data
 
 def test_predict_kidney_valid():
     payload = {
@@ -62,6 +68,10 @@ def test_predict_kidney_valid():
     }
     response = client.post("/predict/kidney", json=payload)
     assert response.status_code == 200
+    data = response.json()
+    assert data["disease"] == "kidney"
+    assert data["explanation_available"] is False
+    assert "shap_explanation" not in data
 
 def test_predict_stroke_valid():
     payload = {
@@ -71,6 +81,10 @@ def test_predict_stroke_valid():
     }
     response = client.post("/predict/stroke", json=payload)
     assert response.status_code == 200
+    data = response.json()
+    assert data["disease"] == "stroke"
+    assert data["explanation_available"] is False
+    assert "shap_explanation" not in data
 
 def test_predict_missing_fields():
     payload = {"age": 45}  # Missing most fields
@@ -94,3 +108,23 @@ def test_predict_shap_disabled(monkeypatch):
     data = response.json()
     assert data["explanation_available"] is False
     assert "shap_explanation" not in data
+
+
+def test_predict_shap_enabled(monkeypatch):
+    monkeypatch.setenv("ENABLE_SHAP_EXPLANATIONS", "True")
+    monkeypatch.setattr(
+        "routers.prediction.LLMProvider.chat",
+        lambda self, messages: "Explanation generated for testing.",
+    )
+    payload = {
+        "glucose": 120, "blood_pressure": 80, "skin_thickness": 20, "insulin": 85,
+        "bmi": 25.5, "diabetes_pedigree_function": 0.5, "age": 45, "pregnancies": 2
+    }
+
+    response = client.post("/predict/diabetes", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["explanation_available"] is True
+    assert data["shap_explanation"]["top_factors"]
+    assert data["shap_explanation"]["explanation_text"]
