@@ -151,7 +151,7 @@
         <p class="chart-kicker">Track changes over your latest saved calculations.</p>
       </div>
     </div>
-    <div class="chart-wrap"><canvas id="scoreHistory"></canvas></div>
+    <div class="chart-wrap"><canvas id="scoreHistory" aria-label="Health score history chart" role="img"></canvas></div>
   </article>
   <article class="card chart-panel">
     <div class="chart-panel-header">
@@ -160,7 +160,7 @@
         <p class="chart-kicker">Normalized score across key health dimensions.</p>
       </div>
     </div>
-    <div class="chart-wrap"><canvas id="wellnessRadar"></canvas></div>
+    <div class="chart-wrap"><canvas id="wellnessRadar" aria-label="Wellness radar chart" role="img"></canvas></div>
   </article>
 </section>
 
@@ -171,7 +171,7 @@
       <p class="chart-kicker">BMI, glucose, cholesterol, and blood pressure in one view.</p>
     </div>
   </div>
-  <div class="chart-wrap small"><canvas id="markerBars"></canvas></div>
+  <div class="chart-wrap small"><canvas id="markerBars" aria-label="Current clinical markers chart" role="img"></canvas></div>
 </section>
 {% endblock %}
 {% block extra_js %}
@@ -227,15 +227,20 @@ document.getElementById("healthScoreForm").addEventListener("submit", async (eve
     return;
   }
 
+  const submitButton = form.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.setAttribute("aria-busy", "true");
   showLoading("Calculating your health score...");
   try {
     const result = await API.post("/health-score/", data);
     notify.success(`Health score calculated: ${result.score}/100`);
     setTimeout(() => window.location.reload(), 1200);
   } catch (error) {
-    notify.error("Could not calculate health score right now. Please try again.");
+    notify.error(error.message || "Could not calculate health score right now. Please try again.");
   } finally {
     hideLoading();
+    submitButton.disabled = false;
+    submitButton.removeAttribute("aria-busy");
   }
 });
 </script>

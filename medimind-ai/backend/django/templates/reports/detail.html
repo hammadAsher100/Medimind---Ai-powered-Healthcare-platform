@@ -3,7 +3,7 @@
 {% if report %}
 <div class="page-header">
   <div><p class="page-eyebrow">Report Detail</p><h2 class="page-title">{{ report.file.name|default:"Medical Report" }}</h2><p class="page-subtitle">{{ report.get_report_type_display }} report uploaded {{ report.uploaded_at|date:"M d, Y" }}</p></div>
-  <div class="form-actions"><a class="btn btn-secondary" href="{{ report.file.url }}">Download PDF</a><button class="btn btn-secondary">Share</button><button class="btn btn-danger">Delete</button></div>
+  <div class="form-actions"><a class="btn btn-secondary" href="{% url 'report_download' report.id %}">Download PDF</a><button type="button" class="btn btn-secondary" disabled title="Sharing is not configured">Share</button><button type="button" class="btn btn-danger" disabled title="Report deletion is not available here">Delete</button></div>
 </div>
 <section class="card">
   <h3 class="card-title">Lab Values</h3>
@@ -32,21 +32,36 @@
 document.addEventListener("DOMContentLoaded", () => {
   const raw = document.getElementById("analysisData");
   const analysis = raw ? JSON.parse(raw.textContent) : {};
-  const labs = analysis.lab_values || [
-    {name:"Total Cholesterol", value:"220", unit:"mg/dL", normal_range:"<200", status:"high"},
-    {name:"HDL Cholesterol", value:"45", unit:"mg/dL", normal_range:">40", status:"normal"},
-    {name:"LDL Cholesterol", value:"155", unit:"mg/dL", normal_range:"<100", status:"high"},
-    {name:"Blood Glucose", value:"118", unit:"mg/dL", normal_range:"70-100", status:"elevated"},
-    {name:"Hemoglobin", value:"13.2", unit:"g/dL", normal_range:"12-17", status:"normal"},
-    {name:"Vitamin D", value:"18", unit:"ng/mL", normal_range:"30-100", status:"low"}
-  ];
-  document.querySelector("#labTable tbody").innerHTML = labs.map((lab) => {
+  const labs = analysis.lab_values || [];
+  const labBody = document.querySelector("#labTable tbody");
+  if (!labs.length) {
+    const row = labBody.insertRow();
+    const cell = row.insertCell();
+    cell.colSpan = 5;
+    cell.className = "text-muted";
+    cell.textContent = "No structured lab values were extracted from this report.";
+  }
+  labs.forEach((lab) => {
     const status = String(lab.status || "normal").toLowerCase();
     const badge = status.includes("normal") ? "badge-success" : status.includes("elevated") ? "badge-warning" : "badge-danger";
-    return `<tr><td>${lab.name}</td><td>${lab.value}</td><td>${lab.unit || ""}</td><td>${lab.normal_range || lab.normalRange || ""}</td><td><span class="badge ${badge}">${status}</span></td></tr>`;
-  }).join("");
+    const row = labBody.insertRow();
+    [lab.name, lab.value, lab.unit || "", lab.normal_range || lab.normalRange || ""].forEach((value) => {
+      const cell = row.insertCell();
+      cell.textContent = value ?? "";
+    });
+    const statusCell = row.insertCell();
+    const statusBadge = document.createElement("span");
+    statusBadge.className = `badge ${badge}`;
+    statusBadge.textContent = status;
+    statusCell.appendChild(statusBadge);
+  });
   const recs = analysis.recommendations || ["Schedule clinical follow-up for abnormal values.", "Bring this report to your next appointment.", "Use the assistant to prepare questions for your doctor."];
-  document.getElementById("recommendations").innerHTML = recs.map((item) => `<li>${item}</li>`).join("");
+  const recommendations = document.getElementById("recommendations");
+  recs.forEach((item) => {
+    const listItem = document.createElement("li");
+    listItem.textContent = item;
+    recommendations.appendChild(listItem);
+  });
 });
 </script>
 {% endblock %}

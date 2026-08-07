@@ -245,9 +245,10 @@
 }
 
 @media (max-width: 900px) {
-  .auth-body { grid-template-columns: 1fr; }
+  .auth-body { grid-template-columns: minmax(0, 1fr); }
   .auth-brand { min-height: auto; padding: var(--sp-8); }
   .auth-copy h1 { font-size: var(--text-2xl); }
+  .auth-panel { min-height: auto; padding: var(--sp-8); }
 }
 
 @media (max-width: 768px) {

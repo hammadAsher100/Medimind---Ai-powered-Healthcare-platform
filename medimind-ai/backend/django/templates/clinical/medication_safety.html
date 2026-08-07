@@ -5,14 +5,17 @@
 
 {% block content %}
 <header class="page-header">
-    <h1 class="page-title">Medication Safety Passport</h1>
-    <p class="page-subtitle">Drug interaction checks, allergy screening, and safety alerts</p>
+    <div>
+      <p class="page-eyebrow">Clinical Intelligence</p>
+      <h1 class="page-title">Medication Safety Passport</h1>
+      <p class="page-subtitle">Drug interaction checks, allergy screening, and safety alerts</p>
+    </div>
   </header>
 
   <!-- Run Safety Check -->
   <div class="card section-gap">
     <div class="card-body">
-      <button class="btn btn-primary" onclick="runSafetyCheck()">Run Full Safety Check</button>
+      <button type="button" class="btn btn-primary" id="safetyCheckButton" onclick="runSafetyCheck()">Run Full Safety Check</button>
       <span class="text-muted" style="margin-left: var(--sp-3);">Checks interactions, allergies, and duplicate therapies</span>
     </div>
   </div>
@@ -76,7 +79,7 @@
 
   <!-- Historical Alerts -->
   {% if alerts %}
-  <div class="card">
+  <div class="card section-gap">
     <div class="card-header"><h3 class="card-title">Alert History</h3></div>
     <div class="card-body">
       {% for alert in alerts %}
@@ -95,6 +98,9 @@
     This is an automated safety screening. It does not replace professional pharmacist or physician review. Always consult a qualified healthcare provider before making medication decisions.
   </p>
 
+{{ medication_payload|json_script:"medicationPayload" }}
+{{ allergy_payload|json_script:"allergyPayload" }}
+
 <style>
   .finding-item { padding: var(--sp-2) 0; border-bottom: 1px solid var(--border); }
   .finding-item:last-child { border-bottom: none; }
@@ -108,28 +114,19 @@
 
 <script>
 function runSafetyCheck() {
+  const button = document.getElementById('safetyCheckButton');
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
   showLoading();
   const resultEl = document.getElementById('safety-results');
-  const meds = [];
-  const allergies = [];
+  const medications = JSON.parse(document.getElementById('medicationPayload').textContent);
+  const allergies = JSON.parse(document.getElementById('allergyPayload').textContent);
 
-  document.querySelectorAll('.data-table tbody tr').forEach(row => {
-    const cells = row.querySelectorAll('td');
-    if (!cells.length) return;
-    // Simplified: collect medication names from first table, allergies from second
-    // We'll rely on the server-side check with what data the server has
-  });
-
-  fetch('/ai/medication/safety-check', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
+  API.post('/medication/safety-check', {
       user_id: {{ request.user.id }},
-      medications: [],
-      allergies: [],
-    })
-  })
-  .then(r => r.json())
+      medications,
+      allergies,
+    }, true)
   .then(data => {
     hideLoading();
     resultEl.style.display = 'block';
@@ -178,6 +175,10 @@ function runSafetyCheck() {
     hideLoading();
     resultEl.style.display = 'block';
     resultEl.innerHTML = '<div class="card"><div class="card-body"><p class="text-danger">Error running safety check. Server may be unavailable.</p></div></div>';
+  })
+  .finally(() => {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
   });
 }
 </script>

@@ -5,8 +5,11 @@
 
 {% block content %}
 <header class="page-header">
-    <h1 class="page-title">Lab Trends</h1>
-    <p class="page-subtitle">Longitudinal laboratory results tracking</p>
+    <div>
+      <p class="page-eyebrow">Clinical Intelligence</p>
+      <h1 class="page-title">Lab Trends</h1>
+      <p class="page-subtitle">Longitudinal laboratory results tracking</p>
+    </div>
   </header>
 
   {% if test_names %}
@@ -41,7 +44,7 @@
   <div id="trend-result" style="display: none;"></div>
 
   <!-- Observations Table -->
-  <div class="card">
+  <div class="card section-gap">
     <div class="card-header">
       <h3 class="card-title">Recent Observations</h3>
     </div>

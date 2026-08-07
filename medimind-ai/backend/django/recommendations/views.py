@@ -1,5 +1,6 @@
 import requests
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, render
 from rest_framework import generics, permissions, status
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -110,6 +111,7 @@ class ExplainabilityView(APIView):
         )
 
 
+@login_required
 def explainability_page(request, prediction_id):
     prediction = get_object_or_404(Prediction, id=prediction_id, user=request.user)
     top_factors = prediction.shap_explanation.get("top_factors", [])

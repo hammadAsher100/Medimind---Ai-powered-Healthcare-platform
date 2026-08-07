@@ -1,6 +1,9 @@
+import os
+
 from django.conf import settings
 from django.contrib.auth import logout as django_logout
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import FileResponse, Http404
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_GET, require_POST
 
@@ -131,6 +134,25 @@ def report_detail(request, pk):
     context = _common_context(request, "Report Detail")
     context["report"] = report
     return render(request, "reports/detail.html", context)
+
+
+@login_required
+@require_GET
+def report_download(request, pk):
+    """Download a report through an ownership-checked application route."""
+    report = MedicalReport.objects.filter(user=request.user, pk=pk).first()
+    if not report or not report.file:
+        raise Http404("Report not found")
+    try:
+        report.file.open("rb")
+    except (FileNotFoundError, OSError):
+        raise Http404("Report file not found")
+    return FileResponse(
+        report.file,
+        as_attachment=True,
+        filename=os.path.basename(report.file.name),
+        content_type="application/pdf",
+    )
 
 
 @login_required
@@ -266,6 +288,20 @@ def medication_safety_page(request):
         "medications": medications,
         "allergies": allergies,
         "alerts": alerts,
+        "medication_payload": [
+            {
+                "medication_name": item.medication.name,
+                "status": item.status,
+                "dosage": item.dosage,
+                "frequency": item.frequency,
+                "drug_class": item.medication.drug_class,
+            }
+            for item in medications
+        ],
+        "allergy_payload": [
+            {"allergen": item.allergen, "severity": item.severity}
+            for item in allergies
+        ],
     })
     return render(request, "clinical/medication_safety.html", context)
 

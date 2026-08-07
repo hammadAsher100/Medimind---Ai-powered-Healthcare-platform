@@ -11,8 +11,8 @@
         <p class="page-subtitle">Patient state overview and data integrity</p>
       </div>
       <div class="page-actions">
-        <button class="btn btn-sm" onclick="refreshPatientState()">Refresh State</button>
-        <a href="{% url 'lab_trends_page' %}" class="btn btn-sm">Lab Trends</a>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="refreshPatientState()">Refresh State</button>
+        <a href="{% url 'lab_trends_page' %}" class="btn btn-sm btn-secondary">Lab Trends</a>
       </div>
     </div>
   </header>
@@ -49,7 +49,7 @@
   </div>
   {% endif %}
 
-  <div class="grid-2">
+  <div class="grid-2 section-gap">
     <!-- Critical Findings -->
     <div class="card">
       <div class="card-header"><h3 class="card-title">Critical Findings</h3></div>
@@ -171,19 +171,11 @@
 
 <script>
 function refreshPatientState() {
-  showLoading();
-  API.get('/patient-state/build/').then(data => {
-    hideLoading();
-    location.reload();
-  }).catch(() => {
-    hideLoading();
-    // Fallback: try via proxy
-    fetch('/ai/patient-state/build', {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({user_id: {{ request.user.id }}})
-    }).then(r => r.json()).then(() => location.reload());
-  });
+  showLoading('Refreshing patient state...');
+  API.post('/patient-state/build', {user_id: {{ request.user.id }}}, true)
+    .then(() => notify.success('Patient state refreshed for this session.'))
+    .catch((error) => notify.error(error.message || 'Unable to refresh patient state.'))
+    .finally(() => hideLoading());
 }
 </script>
 {% endblock %}

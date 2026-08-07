@@ -25,6 +25,9 @@
   --text-dark:      #1A1D23;
   --text-body:      #4B5062;
   --text-muted:     #858B9E;
+  /* Compatibility aliases used by the clinical templates. */
+  --text:           var(--text-primary);
+  --bg:             var(--surface-alt);
 
   --accent:       #194D3A;
   --accent-light: #E8F0EB;
@@ -122,6 +125,20 @@ a { color: inherit; text-decoration: none; }
 button, input, select, textarea { font: inherit; }
 button { cursor: pointer; }
 img, svg { display: block; max-width: 100%; }
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 
 /* ── Typography ────────────────────────────────────── */
 h1, h2, h3, h4, h5, h6 {
@@ -293,6 +310,7 @@ code, pre, .mono {
 }
 
 .input,
+input:not([type]),
 input[type="text"],
 input[type="email"],
 input[type="password"],
@@ -300,6 +318,7 @@ input[type="number"],
 input[type="date"],
 input[type="tel"],
 input[type="url"],
+input[type="search"],
 select,
 textarea {
   width: 100%;
@@ -330,6 +349,36 @@ textarea:focus {
 input::placeholder,
 textarea::placeholder {
   color: var(--text-tertiary);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+input:user-invalid,
+select:user-invalid,
+textarea:user-invalid,
+.input-error {
+  border-color: var(--error);
+  box-shadow: 0 0 0 3px var(--error-soft);
+}
+
+.form-error {
+  margin-bottom: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid rgba(160, 48, 48, 0.28);
+  border-radius: var(--radius);
+  background: var(--error-soft);
+  color: var(--error);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+
+.form-error:empty {
+  display: none;
 }
 
 .radio-pills {
@@ -740,6 +789,11 @@ textarea::placeholder {
 @media (max-width: 720px) {
   .grid-2, .grid-3, .grid-4, .form-grid {
     grid-template-columns: 1fr;
+  }
+  html,
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
   }
   .risk-bar {
     grid-template-columns: 1fr;

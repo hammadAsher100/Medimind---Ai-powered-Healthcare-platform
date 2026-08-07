@@ -52,10 +52,10 @@
     <button class="btn btn-primary" onclick="exportFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
       Export FHIR Bundle
     </button>
-    <button class="btn" onclick="viewFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
+    <button type="button" class="btn btn-secondary" onclick="viewFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
       View as JSON
     </button>
-    <button class="btn" onclick="copyFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
+    <button type="button" class="btn btn-secondary" onclick="copyFHIR()" {% if not observation_count and not prediction_count %}disabled{% endif %}>
       Copy to Clipboard
     </button>
   </div>
@@ -126,19 +126,17 @@ function exportFHIR() {
 }
 
 function viewFHIR() {
-  if (currentBundle) {
-    exportFHIR();  // Re-fetch then show
-  }
+  exportFHIR();
 }
 
 function copyFHIR() {
   if (!currentBundle) {
-    alert('Generate the bundle first.');
+    notify.warning('Generate the bundle first.');
     return;
   }
   navigator.clipboard.writeText(JSON.stringify(currentBundle, null, 2))
-    .then(() => alert('FHIR bundle copied to clipboard!'))
-    .catch(() => alert('Failed to copy. Select all (Ctrl+A) and copy manually.'));
+    .then(() => notify.success('FHIR bundle copied to clipboard.'))
+    .catch(() => notify.error('Failed to copy. Select the JSON and copy it manually.'));
 }
 </script>
 {% endblock %}

@@ -32,10 +32,10 @@
 
 <section class="card section-gap">
   <div class="filter-bar">
-    <select aria-label="Filter by type"><option>All Types</option><option>Blood</option><option>Lab</option><option>Imaging</option></select>
-    <select aria-label="Filter by date"><option>This Month</option><option>Last 3 Months</option><option>This Year</option></select>
-    <select aria-label="Filter by status"><option>Status: All</option><option>Analyzed</option><option>Processing</option><option>Failed</option></select>
-    <input class="search-input" type="search" placeholder="Search reports..." aria-label="Search reports">
+    <select id="reportTypeFilter" aria-label="Filter by type"><option value="all">All Types</option><option value="blood">Blood</option><option value="lab">Lab</option><option value="imaging">Imaging</option><option value="other">Other</option></select>
+    <select id="reportDateFilter" aria-label="Filter by date"><option value="all">All Dates</option><option value="month">This Month</option><option value="90">Last 3 Months</option><option value="year">This Year</option></select>
+    <select id="reportStatusFilter" aria-label="Filter by status"><option value="all">Status: All</option><option value="analyzed">Analyzed</option><option value="pending">Pending</option><option value="failed">Failed</option></select>
+    <input id="reportSearch" class="search-input" type="search" placeholder="Search reports..." aria-label="Search reports">
   </div>
   {% if reports %}
     <div class="table-wrap">
@@ -43,18 +43,25 @@
         <thead><tr><th>#</th><th>Report Name</th><th>Type</th><th>Uploaded</th><th>Status</th><th>Key Finding</th><th>Action</th></tr></thead>
         <tbody>
           {% for report in reports %}
-            <tr>
+            <tr data-report-row data-type="{{ report.report_type }}" data-date="{{ report.uploaded_at|date:'Y-m-d' }}" data-status="{% if report.analysis_result.error %}failed{% elif report.analysis_result and report.analysis_result != '{}' %}analyzed{% else %}pending{% endif %}">
               <td>{{ forloop.counter }}</td>
               <td>{{ report.file.name|default:"Medical report" }}</td>
               <td>{{ report.get_report_type_display }}</td>
               <td>{{ report.uploaded_at|date:"M d, Y" }}</td>
-              <td><span class="badge badge-success">Analyzed</span></td>
+              <td>
+                {% if report.analysis_result.error %}<span class="badge badge-danger">Failed</span>
+                {% elif report.analysis_result and report.analysis_result != "{}" %}<span class="badge badge-success">Analyzed</span>
+                {% else %}<span class="badge badge-warning">Pending</span>{% endif %}
+              </td>
               <td>{{ report.summary|default:"Clinical values ready for review"|truncatechars:70 }}</td>
               <td><a class="btn btn-secondary" href="{% url 'report_detail_page' report.id %}">View</a></td>
             </tr>
           {% endfor %}
         </tbody>
       </table>
+    </div>
+    <div class="empty-state" id="reportFilterEmpty" hidden>
+      <div><strong>No matching reports</strong><p>Adjust the filters or search term to see more results.</p></div>
     </div>
   {% else %}
     <div class="empty-state">
@@ -80,6 +87,37 @@ document.addEventListener("DOMContentLoaded", () => {
   const total = analyzed + pending;
   makeDoughnutChart(document.getElementById("reportTypeMix"), ["Blood", "Lab", "Imaging", "Other"], [typeCounts.blood, typeCounts.lab, typeCounts.imaging, typeCounts.other], ["#9B2C2C", "#194D3A", "#2D7A5E", "#90948B"]);
   makeBarChart(document.getElementById("reportStatus"), ["Analyzed", "Pending"], total ? [analyzed, pending] : [0, 1], ["#194D3A", "#B45309"]);
+
+  const rows = [...document.querySelectorAll("[data-report-row]")];
+  const typeFilter = document.getElementById("reportTypeFilter");
+  const dateFilter = document.getElementById("reportDateFilter");
+  const statusFilter = document.getElementById("reportStatusFilter");
+  const search = document.getElementById("reportSearch");
+  const empty = document.getElementById("reportFilterEmpty");
+
+  function applyFilters() {
+    const now = new Date();
+    const query = search.value.trim().toLowerCase();
+    let visible = 0;
+    rows.forEach((row) => {
+      const reportDate = new Date(`${row.dataset.date}T00:00:00`);
+      const ageDays = (now - reportDate) / 86400000;
+      const dateMatches = dateFilter.value === "all"
+        || (dateFilter.value === "month" && reportDate.getMonth() === now.getMonth() && reportDate.getFullYear() === now.getFullYear())
+        || (dateFilter.value === "90" && ageDays >= 0 && ageDays <= 90)
+        || (dateFilter.value === "year" && reportDate.getFullYear() === now.getFullYear());
+      const matches = (typeFilter.value === "all" || row.dataset.type === typeFilter.value)
+        && (statusFilter.value === "all" || row.dataset.status === statusFilter.value)
+        && dateMatches
+        && (!query || row.textContent.toLowerCase().includes(query));
+      row.hidden = !matches;
+      if (matches) visible += 1;
+    });
+    if (empty) empty.hidden = visible !== 0 || rows.length === 0;
+  }
+
+  [typeFilter, dateFilter, statusFilter].forEach((control) => control.addEventListener("change", applyFilters));
+  search.addEventListener("input", applyFilters);
 });
 </script>
 {% endblock %}

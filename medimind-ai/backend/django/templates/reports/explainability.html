@@ -1,56 +1,81 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>MediMind Explainability</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; margin: 32px; color: #172033; background: #f8fafc; }
-    main { max-width: 960px; margin: 0 auto; }
-    section { background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 24px; margin-bottom: 16px; }
-    .high { color: #dc2626; }
-    .medium { color: #d97706; }
-    .low { color: #16a34a; }
-    details { border-top: 1px solid #e5e7eb; padding: 12px 0; }
-  </style>
-</head>
-<body>
-<main>
-  <section>
-    <h1>{{ prediction.disease|title }} Risk Explainability</h1>
-    <p class="{{ prediction.risk_level|lower }}">Risk: {{ prediction.risk_percentage|floatformat:1 }}% ({{ prediction.risk_level }})</p>
-  </section>
-  <section>
-    <canvas id="shapChart" height="160"></canvas>
-  </section>
-  <section>
-    <h2>Explanation</h2>
-    <p>{{ prediction.shap_explanation.explanation_text }}</p>
-    <h2>AI Recommendation</h2>
-    <p>{{ prediction.ai_recommendation }}</p>
-  </section>
-  <section>
-    <h2>What does this mean?</h2>
-    {% for item in rag_context %}
-      <details>
-        <summary>{{ item.title|default:"Medical context" }}</summary>
-        <p>{{ item.text }}</p>
-      </details>
-    {% empty %}
-      <p>No knowledge-base context was attached to this prediction.</p>
-    {% endfor %}
-  </section>
-</main>
+{% extends "base.html" %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <p class="page-eyebrow">Prediction Explainability</p>
+    <h2 class="page-title">{{ prediction.disease|title }} Risk Drivers</h2>
+    <p class="page-subtitle">Review the model factors behind this educational risk estimate.</p>
+  </div>
+  <a class="btn btn-secondary" href="{% url 'predictions_page' %}">Back to Assessments</a>
+</div>
+
+<section class="hero-result {% if prediction.risk_percentage >= 70 %}high{% elif prediction.risk_percentage >= 40 %}moderate{% else %}low{% endif %}">
+  <p class="page-eyebrow">Recorded Assessment</p>
+  <div class="hero-metrics">
+    <div><div class="hero-number">{{ prediction.risk_percentage|floatformat:1 }}%</div><span>Risk Score</span></div>
+    <div><div class="hero-number">{{ prediction.risk_level }}</div><span>Risk Level</span></div>
+  </div>
+</section>
+
+<section class="grid grid-55-45 result-grid">
+  <article class="card">
+    <h3 class="card-title">Feature Contributions</h3>
+    {% if labels %}
+      <div class="chart-wrap"><canvas id="shapChart" aria-label="Feature contribution chart" role="img"></canvas></div>
+    {% else %}
+      <div class="empty-state"><div><strong>No detailed drivers available</strong><p>This prediction did not store feature-level contribution data.</p></div></div>
+    {% endif %}
+  </article>
+  <aside class="result-sidebar">
+    <article class="card">
+      <h3 class="card-title">Explanation</h3>
+      <p>{{ prediction.shap_explanation.explanation_text|default:"A detailed explanation was not stored for this assessment." }}</p>
+    </article>
+    <article class="card">
+      <h3 class="card-title">AI Recommendation</h3>
+      <p>{{ prediction.ai_recommendation|default:"Discuss this result with a qualified healthcare provider." }}</p>
+    </article>
+  </aside>
+</section>
+
+<section class="card accordion section-gap">
+  <h3 class="card-title">Medical Context</h3>
+  {% for item in rag_context %}
+    <details>
+      <summary>{{ item.title|default:"Medical context" }}</summary>
+      <p>{{ item.text }}</p>
+    </details>
+  {% empty %}
+    <div class="empty-state"><div><strong>No additional context attached</strong><p>This assessment does not include knowledge-base references.</p></div></div>
+  {% endfor %}
+</section>
+
+{{ labels|json_script:"explainabilityLabels" }}
+{{ values|json_script:"explainabilityValues" }}
+{{ colors|json_script:"explainabilityColors" }}
+{% endblock %}
+
+{% block extra_js %}
+{% if labels %}
 <script>
-const labels = {{ labels|safe }};
-const values = {{ values|safe }};
-const colors = {{ colors|safe }};
 new Chart(document.getElementById("shapChart"), {
   type: "bar",
-  data: { labels, datasets: [{ label: "SHAP contribution", data: values, backgroundColor: colors }] },
-  options: { indexAxis: "y", responsive: true, scales: { x: { beginAtZero: true } } }
+  data: {
+    labels: JSON.parse(document.getElementById("explainabilityLabels").textContent),
+    datasets: [{
+      label: "Feature contribution",
+      data: JSON.parse(document.getElementById("explainabilityValues").textContent),
+      backgroundColor: JSON.parse(document.getElementById("explainabilityColors").textContent),
+      borderRadius: 4,
+    }],
+  },
+  options: {
+    indexAxis: "y",
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: { x: { beginAtZero: true } },
+  },
 });
 </script>
-</body>
-</html>
+{% endif %}
+{% endblock %}

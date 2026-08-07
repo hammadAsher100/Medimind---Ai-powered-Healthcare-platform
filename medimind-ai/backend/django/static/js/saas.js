@@ -9,21 +9,21 @@ document.addEventListener("DOMContentLoaded", () => {
     link.classList.toggle("active", active);
   });
 
-  // Also highlight dropdown items whose parent dropdown contains the active link
-  document.querySelectorAll(".nav-dropdown").forEach((dropdown) => {
-    const activeItem = dropdown.querySelector(".dropdown-item.active");
-    if (activeItem) {
-      const trigger = dropdown.querySelector(".nav-dropdown-trigger");
-      if (trigger) trigger.classList.add("active");
-    }
-  });
-
   document.querySelectorAll(".dropdown-item").forEach((item) => {
     const href = item.getAttribute("href");
     if (!href) return;
     const active = href === "/" ? current === "/" || current === "/dashboard/" : current.startsWith(href);
     item.classList.toggle("active", active);
+    if (active) item.setAttribute("aria-current", "page");
   });
+
+  // Highlight a dropdown trigger after its child links have been evaluated.
+  document.querySelectorAll(".nav-dropdown").forEach((dropdown) => {
+    const trigger = dropdown.querySelector(".nav-dropdown-trigger");
+    if (trigger) trigger.classList.toggle("active", Boolean(dropdown.querySelector(".dropdown-item.active")));
+  });
+
+  document.querySelectorAll("a.nav-link.active").forEach((link) => link.setAttribute("aria-current", "page"));
 
   // ── Mobile nav toggle ────────────────────────────────
   const navToggle = document.querySelector("[data-nav-toggle]");
@@ -33,7 +33,23 @@ document.addEventListener("DOMContentLoaded", () => {
       const open = navMenu.classList.toggle("open");
       navToggle.setAttribute("aria-expanded", String(open));
     });
+
+    navMenu.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        navMenu.classList.remove("open");
+        navToggle.setAttribute("aria-expanded", "false");
+      });
+    });
   }
+
+  // Associate visible labels with their controls when a template omits IDs.
+  document.querySelectorAll(".form-group").forEach((group, index) => {
+    const label = group.querySelector(":scope > label");
+    const control = group.querySelector("input, select, textarea");
+    if (!label || !control || label.contains(control)) return;
+    if (!control.id) control.id = `field-${index}-${control.name || "control"}`;
+    if (!label.htmlFor) label.htmlFor = control.id;
+  });
 
   // ── Nav dropdowns ────────────────────────────────────
   // Single delegated handler — avoids event-propagation races

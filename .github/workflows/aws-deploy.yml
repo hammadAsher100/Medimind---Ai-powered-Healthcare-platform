@@ -167,8 +167,6 @@ jobs:
           DEPLOY_SCRIPT=$(cat <<'SCRIPT'
           set -euxo pipefail
 
-          export HOME=/root
-          export USER=root
           export AWS_REGION="__AWS_REGION__"
           export AWS_DEFAULT_REGION="__AWS_REGION__"
 
@@ -177,12 +175,15 @@ jobs:
           MODEL_DIR="/opt/medimind/models"
           ENV_BACKUP="/tmp/medimind-production.env"
 
-          mkdir -p "$APP_ROOT" "$MODEL_DIR"
+          mkdir -p "$MODEL_DIR"
           chown -R ec2-user:ec2-user /opt/medimind
           git config --system --add safe.directory "$APP_ROOT" || true
 
           if [ ! -d "$APP_ROOT/.git" ]; then
-            rm -rf "$APP_ROOT"
+            if [ -d "$APP_ROOT" ] && [ -n "$(find "$APP_ROOT" -mindepth 1 -maxdepth 1 -print -quit)" ]; then
+              echo "$APP_ROOT exists but is not a Git checkout; refusing to overwrite it"
+              exit 1
+            fi
             git clone https://github.com/hammadAsher100/Medimind---Ai-powered-Healthcare-platform.git "$APP_ROOT"
           fi
 
@@ -239,22 +240,35 @@ jobs:
           cd "$COMPOSE_DIR"
           chmod 600 .env
           docker compose config --quiet
+
+          deployment_failure() {
+            failure_status=$?
+            trap - ERR
+            set +e
+            echo "Deployment failed with exit code $failure_status"
+            echo "Container status at failure"
+            docker compose ps -a
+            echo "Recent container logs"
+            docker compose logs --no-color --timestamps --tail=250
+            echo "Disk and Docker usage at failure"
+            df -h /
+            docker system df
+            exit "$failure_status"
+          }
+          trap deployment_failure ERR
+
           echo "Disk and Docker usage before cleanup"
           df -h /
           docker system df || true
 
-          echo "Stopping existing containers to free up space"
-          docker compose rm -s -f django fastapi nginx || true
+          echo "Stopping and removing the existing Compose application"
+          docker compose down --remove-orphans --timeout 60
 
-          echo "Cleaning unused images and build cache"
-          docker image prune -a -f || true
-          docker builder prune -a -f || true
-
-          echo "Pulling application images"
+          echo "Pulling the application images published by GitHub Actions"
           docker compose pull django fastapi nginx
 
-          echo "Ensuring core data services are running"
-          docker compose up -d postgres qdrant
+          echo "Recreating the complete Compose application from the pulled images"
+          docker compose up -d --force-recreate --remove-orphans
 
           echo "Waiting for PostgreSQL"
           for attempt in $(seq 1 30); do
@@ -265,9 +279,6 @@ jobs:
             [ "$attempt" -eq 30 ] && docker compose logs --tail=200 postgres && exit 1
             sleep 5
           done
-
-          echo "Deploying application services"
-          docker compose up -d --force-recreate django fastapi
 
           echo "Waiting for Django and FastAPI"
           for attempt in $(seq 1 48); do
@@ -310,9 +321,6 @@ jobs:
             echo "SHAP must be disabled in production"
             exit 1
           fi
-
-          echo "Starting Nginx"
-          docker compose up -d --force-recreate nginx
 
           echo "Checking model mount"
           docker compose exec -T fastapi sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
@@ -450,10 +458,24 @@ jobs:
           echo "Final container status"
           docker compose ps -a
 
+          EXPECTED_SERVICES=$(docker compose config --services | sort)
+          RUNNING_SERVICES=$(docker compose ps --services --filter status=running | sort)
+          if [ "$RUNNING_SERVICES" != "$EXPECTED_SERVICES" ]; then
+            echo "Not every configured service is running"
+            echo "Expected services:"
+            echo "$EXPECTED_SERVICES"
+            echo "Running services:"
+            echo "$RUNNING_SERVICES"
+            exit 1
+          fi
+
           echo "Final memory"
           free -h
 
-          docker image prune -f || true
+          echo "Removing unused old images after successful health checks"
+          docker image prune -a -f || echo "Warning: unused image cleanup failed"
+          docker system df || true
+          trap - ERR
           echo "Deployment completed successfully"
           SCRIPT
           )
