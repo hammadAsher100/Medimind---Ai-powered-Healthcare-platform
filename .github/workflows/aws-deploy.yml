@@ -243,6 +243,9 @@ jobs:
           df -h /
           docker system df || true
 
+          echo "Stopping existing containers to free up space"
+          docker compose rm -s -f django fastapi nginx || true
+
           echo "Cleaning unused images and build cache"
           docker image prune -a -f || true
           docker builder prune -a -f || true
