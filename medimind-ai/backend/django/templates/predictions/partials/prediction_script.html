@@ -4,6 +4,8 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!form) return;
   form.addEventListener("submit", async (event) => {
     event.preventDefault();
+    if (!form.reportValidity()) return;
+    const submitButton = form.querySelector('button[type="submit"]');
     const disease = form.dataset.disease;
     const data = {};
     new FormData(form).forEach((value, key) => {
@@ -12,6 +14,10 @@ document.addEventListener("DOMContentLoaded", () => {
       else if (["hypertension","heart_disease"].includes(key) && disease === "stroke") data[key] = Number(value);
       else data[key] = value;
     });
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.setAttribute("aria-busy", "true");
+    }
     showLoading("Analyzing your risk factors...");
     try {
       const result = await API.post(`/predictions/predict/${disease}/`, data);
@@ -19,9 +25,13 @@ document.addEventListener("DOMContentLoaded", () => {
       sessionStorage.setItem("prediction_input", JSON.stringify(data));
       window.location.href = "/predictions/result/";
     } catch (error) {
-      notify.error("Risk analysis failed. Check your entries and try again.");
+      notify.error(error.message || "Risk analysis failed. Check your entries and try again.");
     } finally {
       hideLoading();
+      if (submitButton) {
+        submitButton.disabled = false;
+        submitButton.removeAttribute("aria-busy");
+      }
     }
   });
 });

@@ -19,6 +19,7 @@ urlpatterns = [
     path("reports/", page_views.reports_index, name="reports_page"),
     path("reports/upload/", page_views.report_upload, name="upload_report_page"),
     path("reports/compare/", page_views.comparison_page, name="compare_reports_page"),
+    path("reports/<int:pk>/download/", page_views.report_download, name="report_download"),
     path("reports/<int:pk>/", page_views.report_detail, name="report_detail_page"),
     path("assistant/", page_views.assistant_chat, name="assistant_page"),
     path("health-score/", page_views.health_score_page, name="health_score_page"),

@@ -1,8 +1,8 @@
 const API = {
   baseURL: "/api",
   aiURL: window.MEDIMIND_AI_URL || (window.location.port === "8000" ? "http://localhost:8001" : "/ai"),
-  token() { return localStorage.getItem("access_token"); },
-  refreshToken() { return localStorage.getItem("refresh_token"); },
+  token() { return localStorage.getItem("access_token") || sessionStorage.getItem("access_token"); },
+  refreshToken() { return localStorage.getItem("refresh_token") || sessionStorage.getItem("refresh_token"); },
   headers(json = true) {
     const headers = {};
     if (json) headers["Content-Type"] = "application/json";
@@ -24,8 +24,9 @@ const API = {
       if (!res.ok) return false;
       const data = await res.json();
       if (data.access) {
-        localStorage.setItem("access_token", data.access);
-        if (data.refresh) localStorage.setItem("refresh_token", data.refresh);
+        const storage = localStorage.getItem("refresh_token") ? localStorage : sessionStorage;
+        storage.setItem("access_token", data.access);
+        if (data.refresh) storage.setItem("refresh_token", data.refresh);
         return true;
       }
     } catch { /* ignore */ }
@@ -61,7 +62,20 @@ const API = {
       try { payload = JSON.parse(text); } catch { payload = { detail: text }; }
     }
     if (!response.ok) {
-      throw new Error(payload.detail || "The request could not be completed.");
+      const detail = payload.detail;
+      let message = "The request could not be completed.";
+      if (typeof detail === "string") {
+        message = detail;
+      } else if (detail && typeof detail === "object") {
+        message = Object.values(detail).flat().join(" ");
+      } else if (payload && typeof payload === "object") {
+        const fieldErrors = Object.entries(payload)
+          .flatMap(([field, errors]) => (Array.isArray(errors) ? errors : [errors]).map((error) => `${field.replaceAll("_", " ")}: ${error}`));
+        if (fieldErrors.length) message = fieldErrors.join(" ");
+      }
+      const error = new Error(message);
+      error.payload = payload;
+      throw error;
     }
     return payload;
   },
@@ -89,13 +103,17 @@ const API = {
       body: formData
     }, true);
   },
-  setTokens(access, refresh) {
-    localStorage.setItem("access_token", access);
-    localStorage.setItem("refresh_token", refresh);
+  setTokens(access, refresh, persistent = true) {
+    this.clearTokens();
+    const storage = persistent ? localStorage : sessionStorage;
+    storage.setItem("access_token", access);
+    storage.setItem("refresh_token", refresh);
   },
   clearTokens() {
     localStorage.removeItem("access_token");
     localStorage.removeItem("refresh_token");
+    sessionStorage.removeItem("access_token");
+    sessionStorage.removeItem("refresh_token");
   },
   isAuthenticated() { return !!this.token(); },
   redirectIfNotAuth() {
@@ -108,9 +126,15 @@ function showLoading(message = "Processing your request...") {
   if (!overlay) return;
   overlay.querySelector("[data-loading-message]").textContent = message;
   overlay.classList.add("active");
+  overlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("is-loading");
 }
 
 function hideLoading() {
   const overlay = document.querySelector("[data-loading-overlay]");
-  if (overlay) overlay.classList.remove("active");
+  if (overlay) {
+    overlay.classList.remove("active");
+    overlay.setAttribute("aria-hidden", "true");
+  }
+  document.body.classList.remove("is-loading");
 }

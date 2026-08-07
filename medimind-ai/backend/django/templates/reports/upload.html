@@ -10,7 +10,7 @@
 
 <form class="card section-gap" id="uploadReportForm" enctype="multipart/form-data">
   <label class="upload-zone" id="uploadZone">
-    <input id="reportFile" name="file" type="file" accept="application/pdf" hidden required>
+    <input class="file-input-visually-hidden" id="reportFile" name="file" type="file" accept="application/pdf" required>
     <div>
       <div class="image-drop-icon" style="margin:0 auto var(--sp-3);">▤</div>
       <strong>Drop your PDF here</strong>
@@ -44,14 +44,56 @@
 {% block extra_js %}
 <script>
 const fileInput = document.getElementById("reportFile");
-fileInput.addEventListener("change", () => {
+const uploadZone = document.getElementById("uploadZone");
+
+function updateFileInfo() {
   const file = fileInput.files[0];
+  const fileInfo = document.getElementById("fileInfo");
+  if (!file) {
+    fileInfo.style.display = "none";
+    fileInfo.replaceChildren();
+    return;
+  }
+  fileInfo.style.display = "block";
+  const name = document.createElement("strong");
+  name.textContent = file.name;
+  const size = document.createElement("p");
+  size.className = "hint";
+  size.textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB selected`;
+  fileInfo.replaceChildren(name, size);
+}
+
+fileInput.addEventListener("change", updateFileInfo);
+["dragenter", "dragover"].forEach((eventName) => uploadZone.addEventListener(eventName, (event) => {
+  event.preventDefault();
+  uploadZone.classList.add("dragover");
+}));
+["dragleave", "drop"].forEach((eventName) => uploadZone.addEventListener(eventName, (event) => {
+  event.preventDefault();
+  uploadZone.classList.remove("dragover");
+}));
+uploadZone.addEventListener("drop", (event) => {
+  const file = event.dataTransfer.files[0];
   if (!file) return;
-  document.getElementById("fileInfo").style.display = "block";
-  document.getElementById("fileInfo").innerHTML = `<strong>${file.name}</strong><p class="hint">${(file.size / 1024 / 1024).toFixed(2)} MB selected</p>`;
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  fileInput.files = transfer.files;
+  updateFileInfo();
 });
 document.getElementById("uploadReportForm").addEventListener("submit", async (event) => {
   event.preventDefault();
+  const file = fileInput.files[0];
+  if (!file || file.type !== "application/pdf") {
+    notify.error("Choose a valid PDF report.");
+    return;
+  }
+  if (file.size > 20 * 1024 * 1024) {
+    notify.error("The selected report exceeds the 20 MB limit.");
+    return;
+  }
+  const submitButton = event.target.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  submitButton.setAttribute("aria-busy", "true");
   const formData = new FormData(event.target);
   showLoading("Analyzing your report: PDF uploaded, extracting text, AI reviewing values...");
   try {
@@ -59,9 +101,11 @@ document.getElementById("uploadReportForm").addEventListener("submit", async (ev
     notify.success("Report analyzed successfully");
     window.location.href = "/reports/";
   } catch (error) {
-    notify.error("Report upload failed. Please try a clear PDF file.");
+    notify.error(error.message || "Report upload failed. Please try a clear PDF file.");
   } finally {
     hideLoading();
+    submitButton.disabled = false;
+    submitButton.removeAttribute("aria-busy");
   }
 });
 </script>

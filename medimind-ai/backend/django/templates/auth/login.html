@@ -8,10 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{% static 'css/design-system.css' %}">
-  <link rel="stylesheet" href="{% static 'css/base.css' %}">
+  <link rel="stylesheet" href="{% static 'css/design-system.css' %}?v=20260807">
+  <link rel="stylesheet" href="{% static 'css/base.css' %}?v=20260807">
   <link rel="stylesheet" href="{% static 'css/components.css' %}">
-  <link rel="stylesheet" href="{% static 'css/saas.css' %}?v=20260707">
+  <link rel="stylesheet" href="{% static 'css/saas.css' %}?v=20260807">
 </head>
 <body class="auth-body">
   <section class="auth-brand">
@@ -34,6 +34,7 @@
     <form class="auth-form" id="loginForm">
       <h2>Welcome back</h2>
       <p class="subtitle">Sign in to your MediMind account</p>
+      <div class="form-error" id="loginError" role="alert" aria-live="polite"></div>
       <div class="form-group">
         <label for="username">Email or username</label>
         <input id="username" name="username" type="text" autocomplete="username" required>
@@ -45,20 +46,20 @@
           <button type="button" class="btn btn-secondary password-toggle" id="togglePassword">Show</button>
         </div>
       </div>
-      <label class="remember-row">
-        <input type="checkbox" checked>
+      <label class="remember-row" for="rememberMe">
+        <input id="rememberMe" name="remember_me" type="checkbox" checked>
         <span>Remember me</span>
       </label>
-      <button class="btn btn-primary btn-full btn-lg" type="submit">Sign In</button>
+      <button class="btn btn-primary btn-full btn-lg" type="submit" id="loginSubmit">Sign In</button>
       <div class="auth-divider">or</div>
       <p class="text-center">New to MediMind? <a class="auth-link" href="{% url 'register_page' %}">Create an account</a></p>
     </form>
   </section>
-  <div class="loading-overlay" data-loading-overlay>
-    <div class="loading-card"><div class="spinner"></div><strong data-loading-message>Signing you in...</strong></div>
+  <div class="loading-overlay" data-loading-overlay aria-hidden="true">
+    <div class="loading-card" role="status" aria-live="polite"><div class="spinner" aria-hidden="true"></div><strong data-loading-message>Signing you in...</strong></div>
   </div>
   <script src="{% static 'js/notifications.js' %}"></script>
-  <script src="{% static 'js/api.js' %}"></script>
+  <script src="{% static 'js/api.js' %}?v=20260807"></script>
   <script>
     document.getElementById("togglePassword").addEventListener("click", () => {
       const input = document.getElementById("password");
@@ -67,19 +68,27 @@
     });
     document.getElementById("loginForm").addEventListener("submit", async (event) => {
       event.preventDefault();
+      const errorRegion = document.getElementById("loginError");
+      const submitButton = document.getElementById("loginSubmit");
+      errorRegion.textContent = "";
+      submitButton.disabled = true;
+      submitButton.setAttribute("aria-busy", "true");
       showLoading("Signing you in...");
       try {
         const data = await API.post("/auth/login/", {
           username: event.target.username.value,
           password: event.target.password.value
         });
-        API.setTokens(data.access, data.refresh);
+        API.setTokens(data.access, data.refresh, document.getElementById("rememberMe").checked);
         notify.success("Welcome back to MediMind AI");
         window.location.href = "/dashboard/";
       } catch (error) {
-        notify.error("Sign in failed. Check your credentials and try again.");
+        errorRegion.textContent = error.message || "Sign in failed. Check your credentials and try again.";
+        notify.error(errorRegion.textContent);
       } finally {
         hideLoading();
+        submitButton.disabled = false;
+        submitButton.removeAttribute("aria-busy");
       }
     });
   </script>

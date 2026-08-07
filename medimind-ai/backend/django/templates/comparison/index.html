@@ -49,7 +49,14 @@
 {% endblock %}
 {% block extra_js %}
 <script>
+function escapeHTML(value) {
+  const element = document.createElement("div");
+  element.textContent = String(value ?? "");
+  return element.innerHTML;
+}
+
 document.getElementById("compareBtn").addEventListener("click", async () => {
+  const compareButton = document.getElementById("compareBtn");
   const firstId = document.getElementById("previousReport").value;
   const secondId = document.getElementById("currentReport").value;
 
@@ -62,6 +69,8 @@ document.getElementById("compareBtn").addEventListener("click", async () => {
     return;
   }
 
+  compareButton.disabled = true;
+  compareButton.setAttribute("aria-busy", "true");
   showLoading("Comparing reports and generating AI analysis...");
   try {
     const data = await API.post("/compare-reports", {
@@ -88,13 +97,13 @@ document.getElementById("compareBtn").addEventListener("click", async () => {
     for (const row of rows) {
       const change = row.absolute_difference > 0 ? `+${row.absolute_difference.toFixed(1)}` : row.absolute_difference.toFixed(1);
       const trendClass = row.trend === "improved" ? "badge-success" : row.trend === "worsened" ? "badge-danger" : "badge-info";
-      const trendLabel = row.trend.charAt(0).toUpperCase() + row.trend.slice(1);
+      const trendLabel = String(row.trend || "stable").replaceAll("_", " ");
       tableHTML += `<tr>
-        <td><strong>${row.name.charAt(0).toUpperCase() + row.name.slice(1)}</strong></td>
-        <td>${row.old}</td>
-        <td>${row.new}</td>
+        <td><strong>${escapeHTML(row.name)}</strong></td>
+        <td>${escapeHTML(row.old)}</td>
+        <td>${escapeHTML(row.new)}</td>
         <td>${change}</td>
-        <td><span class="badge ${trendClass}">${trendLabel}</span></td>
+        <td><span class="badge ${trendClass}">${escapeHTML(trendLabel)}</span></td>
       </tr>`;
     }
 
@@ -102,7 +111,7 @@ document.getElementById("compareBtn").addEventListener("click", async () => {
 
     if (data.narrative) {
       tableHTML += `<div class="disclaimer" style="margin-top:18px; border-color:rgba(25,77,58,0.25); background:var(--accent-glow);">
-        <span>🤖</span><div><strong>AI Analysis</strong><p style="margin:6px 0 0;">${data.narrative}</p></div>
+        <span>🤖</span><div><strong>AI Analysis</strong><p style="margin:6px 0 0;">${escapeHTML(data.narrative)}</p></div>
       </div>`;
     }
 
@@ -115,6 +124,8 @@ document.getElementById("compareBtn").addEventListener("click", async () => {
     notify.error("Comparison failed. Please ensure both reports have been analyzed.");
   } finally {
     hideLoading();
+    compareButton.disabled = false;
+    compareButton.removeAttribute("aria-busy");
   }
 });
 </script>

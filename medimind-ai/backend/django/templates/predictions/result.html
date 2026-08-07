@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
-<section class="hero-result" id="resultHero">
+<section class="card empty-state" id="missingResult" hidden>
+  <div>
+    <strong>No assessment result is available</strong>
+    <p>Run a risk assessment first, then return here to review the result.</p>
+    <a class="btn btn-primary" href="{% url 'predictions_page' %}">Choose an Assessment</a>
+  </div>
+</section>
+
+<section class="hero-result" id="resultHero" data-result-content>
   <p class="page-eyebrow">Risk Assessment</p>
   <h2 class="page-title" id="resultTitle">Disease Risk Assessment</h2>
   <div class="hero-metrics">
@@ -10,10 +18,11 @@
   <p class="chart-kicker section-gap">Assessed on: <span id="assessedDate"></span> · Based on current health indicators</p>
 </section>
 
-<section class="grid grid-55-45 result-grid">
+<section class="grid grid-55-45 result-grid" data-result-content>
   <article class="card">
     <h3 class="card-title">What's Driving Your Risk?</h3>
-    <div class="chart-wrap"><canvas id="shapChart" aria-label="SHAP feature importance chart" role="img"></canvas></div>
+    <div class="chart-wrap" id="shapChartWrap"><canvas id="shapChart" aria-label="Feature importance chart" role="img"></canvas></div>
+    <div class="empty-state" id="driversEmpty" hidden><div><strong>Detailed drivers unavailable</strong><p>This assessment did not include feature-level explanation data.</p></div></div>
     <div class="clinical-callout section-gap">
       <h4>AI Explanation</h4>
       <p id="aiExplanation">The AI explanation will appear after an assessment is completed.</p>
@@ -35,7 +44,7 @@
   </aside>
 </section>
 
-<section class="card accordion section-gap">
+<section class="card accordion section-gap" data-result-content>
   <h3 class="card-title">What Does This Mean?</h3>
   <details open><summary>What is this condition?</summary><p>This estimate shows model-predicted risk from the provided indicators. It is not a diagnosis.</p></details>
   <details><summary>Risk Factors</summary><p>Common factors include abnormal lab values, family history, age, blood pressure, weight, and lifestyle patterns.</p></details>
@@ -43,47 +52,58 @@
   <details><summary>When to See a Doctor</summary><p>Seek clinical guidance for high-risk results, new symptoms, or abnormal report values.</p></details>
 </section>
 
-<div class="sticky-actions">
+<div class="sticky-actions" data-result-content>
   <a class="btn btn-secondary" id="runAgain" href="{% url 'predictions_page' %}">← Run Again</a>
-  <button class="btn btn-secondary" type="button" id="saveTimelineBtn">Save to Timeline</button>
-  <a class="btn btn-primary" href="{% url 'assistant_page' %}">Ask AI Assistant</button>
-  <button class="btn btn-secondary" type="button" id="printBtn">Download PDF</button>
+  <a class="btn btn-secondary" href="{% url 'timeline_page' %}">View Timeline</a>
+  <a class="btn btn-primary" href="{% url 'assistant_page' %}">Ask AI Assistant</a>
+  <button class="btn btn-secondary" type="button" id="printBtn">Print / Save PDF</button>
 </div>
 {% endblock %}
 {% block extra_js %}
 <script>
 document.addEventListener("DOMContentLoaded", () => {
   const result = JSON.parse(sessionStorage.getItem("prediction_result") || "{}");
+  if (!result.disease) {
+    document.getElementById("missingResult").hidden = false;
+    document.querySelectorAll("[data-result-content]").forEach((element) => { element.hidden = true; });
+    return;
+  }
   const disease = result.disease || "disease";
   const risk = Number(result.risk_percentage || 0);
 
-  document.getElementById("resultHero").classList.add(risk < 30 ? "low" : risk <= 60 ? "moderate" : "high");
+  document.getElementById("resultHero").classList.add(risk < 40 ? "low" : risk < 70 ? "moderate" : "high");
   document.getElementById("resultTitle").textContent = `${disease.charAt(0).toUpperCase() + disease.slice(1)} Risk Assessment`;
-  document.getElementById("riskPercent").textContent = `${risk || "—"}%`;
+  document.getElementById("riskPercent").textContent = `${Number.isFinite(risk) ? risk : "—"}%`;
   document.getElementById("riskLevel").textContent = (result.risk_level || "—").toUpperCase();
   document.getElementById("assessedDate").textContent = new Date().toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
   document.getElementById("aiExplanation").textContent = result.shap_explanation?.explanation_text || "The listed factors contributed most to this model estimate.";
   document.getElementById("aiRecommendation").textContent = result.ai_recommendation || "Discuss this result with a qualified healthcare provider.";
   document.getElementById("runAgain").href = `/predictions/${disease}/`;
 
-  const factors = result.shap_explanation?.top_factors || [
-    {feature:"Blood Glucose", contribution:42.1, direction:"increases_risk"},
-    {feature:"BMI", contribution:25.3, direction:"increases_risk"},
-    {feature:"Age", contribution:18, direction:"increases_risk"},
-    {feature:"Blood Pressure", contribution:4.4, direction:"decreases_risk"}
-  ];
+  const factors = result.shap_explanation?.top_factors || [];
+  const breakdown = document.getElementById("riskBreakdown");
+  if (factors.length) {
+    makeHorizontalBarChart(document.getElementById("shapChart"), factors.map(f => f.feature), factors.map(f => f.contribution), factors.map(f => f.direction));
+    factors.forEach((factor) => {
+      const row = document.createElement("div");
+      row.className = "risk-factor-row";
+      const title = document.createElement("strong");
+      title.textContent = `● ${factor.feature}`;
+      const badge = document.createElement("span");
+      badge.className = `badge ${factor.direction === "increases_risk" ? "badge-danger" : "badge-success"}`;
+      badge.textContent = factor.direction === "increases_risk" ? "Increases Risk" : "Decreases Risk";
+      const contribution = document.createElement("p");
+      contribution.className = "hint";
+      contribution.textContent = `Contribution: ${factor.contribution}%`;
+      row.append(title, badge, contribution);
+      breakdown.appendChild(row);
+    });
+  } else {
+    document.getElementById("shapChartWrap").hidden = true;
+    document.getElementById("driversEmpty").hidden = false;
+    breakdown.innerHTML = '<p class="text-muted">Feature-level breakdown was not included in this assessment.</p>';
+  }
 
-  makeHorizontalBarChart(document.getElementById("shapChart"), factors.map(f => f.feature), factors.map(f => f.contribution), factors.map(f => f.direction));
-
-  document.getElementById("riskBreakdown").innerHTML = factors.map((f) =>
-    `<div style="padding:var(--sp-3) 0; border-bottom:1px solid var(--border-light);">
-      <strong style="color:var(--text-primary);">● ${f.feature}</strong>
-      <span class="badge ${f.direction === "increases_risk" ? "badge-danger" : "badge-success"}" style="margin-left:var(--sp-2);">${f.direction === "increases_risk" ? "Increases Risk" : "Decreases Risk"}</span>
-      <p class="hint">Contribution: ${f.contribution}%</p>
-    </div>`
-  ).join("");
-
-  document.getElementById("saveTimelineBtn").addEventListener("click", () => notify.success("Saved to timeline view"));
   document.getElementById("printBtn").addEventListener("click", () => window.print());
 });
 </script>

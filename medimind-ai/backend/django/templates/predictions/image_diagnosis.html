@@ -85,9 +85,9 @@
         <h4>Grad-CAM Heatmap Visualization</h4>
         <p class="gradcam-subtitle">The heatmap highlights regions of the X-ray that most influenced the model's prediction.</p>
         <div class="gradcam-toggle-bar" data-gradcam-bar>
-          <button class="btn btn-sm active" data-gradcam-mode="overlay">Overlay</button>
-          <button class="btn btn-sm" data-gradcam-mode="heatmap">Heatmap</button>
-          <button class="btn btn-sm" data-gradcam-mode="original">Original</button>
+          <button type="button" class="btn btn-sm active" data-gradcam-mode="overlay">Overlay</button>
+          <button type="button" class="btn btn-sm" data-gradcam-mode="heatmap">Heatmap</button>
+          <button type="button" class="btn btn-sm" data-gradcam-mode="original">Original</button>
         </div>
         <div class="gradcam-viewport">
           <img data-gradcam-display src="" alt="Grad-CAM visualization">
@@ -125,6 +125,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const form = document.getElementById("cnnUploadForm");
   const fileInput = document.getElementById("cnnImageInput");
   const fileName = document.querySelector("[data-file-name]");
+  const dropZone = document.querySelector(".image-drop-zone");
   const previewWrap = document.querySelector(".image-preview-wrap");
   const preview = document.getElementById("imagePreview");
   const statusBadge = document.querySelector("[data-cnn-status]");
@@ -182,7 +183,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch(() => setStatus("Model status unavailable", "badge-warning"));
 
-  fileInput.addEventListener("change", () => {
+  function updateSelectedImage() {
     const file = fileInput.files[0];
     fileName.textContent = file ? file.name : "No image selected";
     if (!file) {
@@ -190,8 +191,28 @@ document.addEventListener("DOMContentLoaded", () => {
       preview.removeAttribute("src");
       return;
     }
+    if (preview.src.startsWith("blob:")) URL.revokeObjectURL(preview.src);
     preview.src = URL.createObjectURL(file);
     previewWrap.hidden = false;
+  }
+
+  fileInput.addEventListener("change", updateSelectedImage);
+
+  ["dragenter", "dragover"].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    dropZone.classList.add("dragover");
+  }));
+  ["dragleave", "drop"].forEach((eventName) => dropZone.addEventListener(eventName, (event) => {
+    event.preventDefault();
+    dropZone.classList.remove("dragover");
+  }));
+  dropZone.addEventListener("drop", (event) => {
+    const file = event.dataTransfer.files[0];
+    if (!file) return;
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    updateSelectedImage();
   });
 
   form.addEventListener("submit", async (event) => {
@@ -201,8 +222,19 @@ document.addEventListener("DOMContentLoaded", () => {
       notify.error("Please select an X-ray image first.");
       return;
     }
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      notify.error("Choose a JPEG, PNG, or WEBP image.");
+      return;
+    }
+    if (file.size > 20 * 1024 * 1024) {
+      notify.error("The selected image exceeds the 20 MB limit.");
+      return;
+    }
+    const submitButton = form.querySelector('button[type="submit"]');
     const data = new FormData();
     data.append("file", file);
+    submitButton.disabled = true;
+    submitButton.setAttribute("aria-busy", "true");
     showLoading("Analyzing chest X-ray...");
     try {
       const payload = await API.uploadAI(`/cnn/predict/${modelId}`, data);
@@ -219,13 +251,33 @@ document.addEventListener("DOMContentLoaded", () => {
       document.querySelector("[data-result-confidence]").textContent = `${percent.toFixed(1)}%`;
       document.querySelector("[data-confidence-label]").textContent = payload.confidence_interpretation?.label || confidenceLabel(percent);
       const formattedReport = payload.formatted_report || payload.diagnosis;
-      document.querySelector("[data-result-summary]").innerHTML = `<pre style="white-space: pre-wrap; font-family: inherit; font-size: 1rem; color: inherit; background: transparent; padding: 0;">${formattedReport}</pre>`;
-      recommendations.innerHTML = (payload.clinical_recommendations || []).map((item) => `<li>${item}</li>`).join("");
-      probabilities.innerHTML = Object.entries(payload.probabilities || {}).map(([label, value]) => {
-        const percent = Math.round(value * 1000) / 10;
-        const rowTone = label === "NORMAL" ? "normal" : findingTone(label, percent);
-        return `<div class="probability-row probability-${rowTone}"><span>${titleCase(label)}</span><div class="bar-track"><div style="width:${percent}%"></div></div><strong>${percent}%</strong></div>`;
-      }).join("");
+      const summary = document.querySelector("[data-result-summary]");
+      summary.className = "result-copy";
+      summary.textContent = formattedReport || "No formatted assessment summary was returned.";
+      recommendations.replaceChildren();
+      (payload.clinical_recommendations || []).forEach((item) => {
+        const listItem = document.createElement("li");
+        listItem.textContent = item;
+        recommendations.appendChild(listItem);
+      });
+      probabilities.replaceChildren();
+      Object.entries(payload.probabilities || {}).forEach(([label, value]) => {
+        const probability = Math.max(0, Math.min(100, Math.round(value * 1000) / 10));
+        const rowTone = label === "NORMAL" ? "normal" : findingTone(label, probability);
+        const row = document.createElement("div");
+        row.className = `probability-row probability-${rowTone}`;
+        const name = document.createElement("span");
+        name.textContent = titleCase(label);
+        const track = document.createElement("div");
+        track.className = "bar-track";
+        const fill = document.createElement("div");
+        fill.style.width = `${probability}%`;
+        track.appendChild(fill);
+        const valueLabel = document.createElement("strong");
+        valueLabel.textContent = `${probability}%`;
+        row.append(name, track, valueLabel);
+        probabilities.appendChild(row);
+      });
 
       // ── Grad-CAM heatmap visualization ──────────────────────────────────
       const gradcamSection = document.querySelector("[data-gradcam-section]");
@@ -304,6 +356,8 @@ document.addEventListener("DOMContentLoaded", () => {
       notify.error(error.message || "Image analysis failed.");
     } finally {
       hideLoading();
+      submitButton.disabled = false;
+      submitButton.removeAttribute("aria-busy");
     }
   });
 });

@@ -5,8 +5,11 @@
 
 {% block content %}
 <header class="page-header">
-    <h1 class="page-title">Reviews & Feedback</h1>
-    <p class="page-subtitle">Clinician review decisions and model feedback tracking</p>
+    <div>
+      <p class="page-eyebrow">Clinical Intelligence</p>
+      <h1 class="page-title">Reviews & Feedback</h1>
+      <p class="page-subtitle">Clinician review decisions and model feedback tracking</p>
+    </div>
   </header>
 
   <div class="grid-3">
@@ -123,7 +126,7 @@
             <option value="hallucination">Hallucination</option>
           </select>
         </div>
-        <div class="form-group" style="grid-column: 1 / -1;">
+        <div class="form-group span-all">
           <label class="form-label">Notes</label>
           <textarea class="form-control" id="fb-notes" rows="3"></textarea>
         </div>
@@ -155,7 +158,8 @@
 function submitFeedback() {
   const modelName = document.getElementById('fb-model').value.trim();
   if (!modelName) {
-    alert('Enter a model name.');
+    notify.warning('Enter a model name.');
+    document.getElementById('fb-model').focus();
     return;
   }
 
@@ -176,17 +180,17 @@ function submitFeedback() {
   .then(data => {
     hideLoading();
     if (data.id) {
-      alert('Feedback submitted. Thank you!');
+      notify.success('Feedback submitted. Thank you!');
       document.getElementById('fb-model').value = '';
       document.getElementById('fb-notes').value = '';
       location.reload();
     } else {
-      alert('Error: ' + JSON.stringify(data));
+      notify.error('Feedback could not be saved.');
     }
   })
   .catch(err => {
     hideLoading();
-    alert('Error submitting feedback. Please try again.');
+    notify.error('Error submitting feedback. Please try again.');
   });
 }
 

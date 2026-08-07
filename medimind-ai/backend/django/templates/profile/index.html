@@ -1,21 +1,4 @@
 {% extends "base.html" %}
-{% block extra_head %}
-<style>
-  .modal-overlay {
-    position: fixed; inset: 0; z-index: 200; display: none;
-    place-items: center; background: rgba(21, 23, 20, 0.5);
-  }
-  .modal-overlay.active { display: grid; }
-  .modal-card {
-    width: min(520px, calc(100vw - 40px)); max-height: 90vh; overflow-y: auto;
-    padding: 28px; border-radius: var(--radius-lg); background: var(--surface); border: 1px solid var(--border);
-    animation: modalIn .2s ease;
-  }
-  @keyframes modalIn { from { opacity:0; transform:translateY(16px); } }
-  .modal-card h3 { margin: 0 0 18px; }
-  .modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 22px; }
-</style>
-{% endblock %}
 {% block content %}
 <div class="page-header">
   <div>
@@ -27,7 +10,7 @@
 
 <section class="grid grid-2">
   <article class="card">
-    <div style="display:flex; gap:18px; align-items:center;">
+    <div class="profile-summary">
       <span class="avatar avatar-lg">{{ request.user.first_name|first|default:request.user.username|first|upper }}{{ request.user.last_name|first|upper }}</span>
       <div>
         <h3 id="displayName">{{ request.user.get_full_name|default:request.user.username }}</h3>
@@ -35,7 +18,7 @@
         <p id="displayPhone">{{ request.user.phone_number|default:"Phone not provided" }}</p>
       </div>
     </div>
-    <button class="btn btn-secondary section-gap" onclick="openModal('personalModal')">Edit Personal Info</button>
+    <button type="button" class="btn btn-secondary section-gap" onclick="openModal('personalModal')">Edit Personal Info</button>
   </article>
 
   <article class="card">
@@ -46,7 +29,7 @@
     <p><strong>BMI:</strong> <span id="displayBMI">{{ medical_profile.bmi|default:"--" }}</span></p>
     <p><strong>Smoking:</strong> <span id="displaySmoking">{{ medical_profile.get_smoking_status_display|default:"Not set" }}</span></p>
     <p><strong>Exercise:</strong> <span id="displayExercise">{{ medical_profile.get_exercise_frequency_display|default:"Not set" }}</span></p>
-    <button class="btn btn-secondary" onclick="openModal('medicalModal')">Edit Medical Profile</button>
+    <button type="button" class="btn btn-secondary" onclick="openModal('medicalModal')">Edit Medical Profile</button>
   </article>
 </section>
 
@@ -54,9 +37,9 @@
   <article class="card">
     <div class="card-header-row">
       <h3 class="card-title">Allergies</h3>
-      <button class="btn btn-primary" onclick="openModal('allergyModal')">+ Add</button>
+      <button type="button" class="btn btn-primary" onclick="openModal('allergyModal')">+ Add</button>
     </div>
-    <table class="data-table" style="margin-top:var(--sp-3);">
+    <div class="table-wrap section-gap"><table class="data-table">
       <thead><tr><th>Allergen</th><th>Severity</th><th>Notes</th><th></th></tr></thead>
       <tbody id="allergyRows">
         {% for allergy in allergies %}
@@ -64,21 +47,21 @@
           <td>{{ allergy.allergen }}</td>
           <td><span class="badge {% if allergy.severity == 'severe' %}badge-danger{% elif allergy.severity == 'moderate' %}badge-warning{% else %}badge-success{% endif %}">{{ allergy.severity }}</span></td>
           <td>{{ allergy.notes|default:"-" }}</td>
-          <td><button class="btn btn-secondary" onclick="deleteAllergy({{ allergy.id }})">✕</button></td>
+          <td><button type="button" class="btn btn-secondary" aria-label="Remove {{ allergy.allergen }} allergy" onclick="deleteAllergy({{ allergy.id }})">✕</button></td>
         </tr>
         {% empty %}
         <tr class="empty-row"><td colspan="4">No allergies recorded.</td></tr>
         {% endfor %}
       </tbody>
-    </table>
+    </table></div>
   </article>
 
   <article class="card">
     <div class="card-header-row">
       <h3 class="card-title">Family History</h3>
-      <button class="btn btn-primary" onclick="openModal('familyModal')">+ Add</button>
+      <button type="button" class="btn btn-primary" onclick="openModal('familyModal')">+ Add</button>
     </div>
-    <table class="data-table" style="margin-top:var(--sp-3);">
+    <div class="table-wrap section-gap"><table class="data-table">
       <thead><tr><th>Condition</th><th>Relation</th><th>Notes</th><th></th></tr></thead>
       <tbody id="familyRows">
         {% for item in family_history %}
@@ -86,38 +69,38 @@
           <td>{{ item.condition }}</td>
           <td>{{ item.relation }}</td>
           <td>{{ item.notes|default:"-" }}</td>
-          <td><button class="btn btn-secondary" onclick="deleteFamilyHistory({{ item.id }})">✕</button></td>
+          <td><button type="button" class="btn btn-secondary" aria-label="Remove {{ item.condition }} family history" onclick="deleteFamilyHistory({{ item.id }})">✕</button></td>
         </tr>
         {% empty %}
         <tr class="empty-row"><td colspan="4">No family history recorded.</td></tr>
         {% endfor %}
       </tbody>
-    </table>
+    </table></div>
   </article>
 </section>
 
 <!-- Personal Info Modal -->
-<div class="modal-overlay" id="personalModal">
-  <div class="modal-card">
-    <h3>Edit Personal Information</h3>
+<div class="modal-overlay" id="personalModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="personalModalTitle" tabindex="-1">
+    <h3 id="personalModalTitle">Edit Personal Information</h3>
     <form id="personalForm" class="form-grid">
       <div class="form-group"><label>First Name</label><input name="first_name" value="{{ request.user.first_name }}" required></div>
       <div class="form-group"><label>Last Name</label><input name="last_name" value="{{ request.user.last_name }}" required></div>
-      <div class="form-group" style="grid-column:1/-1;"><label>Email</label><input name="email" type="email" value="{{ request.user.email }}" required></div>
+      <div class="form-group span-all"><label>Email</label><input name="email" type="email" value="{{ request.user.email }}" required></div>
       <div class="form-group"><label>Phone</label><input name="phone_number" type="tel" value="{{ request.user.phone_number }}"></div>
       <div class="form-group"><label>Date of Birth</label><input name="date_of_birth" type="date" value="{{ request.user.date_of_birth|date:'Y-m-d' }}"></div>
     </form>
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('personalModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="savePersonal()">Save Changes</button>
+      <button type="button" class="btn btn-secondary" onclick="closeModal('personalModal')">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="savePersonal()">Save Changes</button>
     </div>
   </div>
 </div>
 
 <!-- Medical Profile Modal -->
-<div class="modal-overlay" id="medicalModal">
-  <div class="modal-card">
-    <h3>Edit Medical Profile</h3>
+<div class="modal-overlay" id="medicalModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="medicalModalTitle" tabindex="-1">
+    <h3 id="medicalModalTitle">Edit Medical Profile</h3>
     <form id="medicalForm" class="form-grid">
       <div class="form-group">
         <label>Blood Type</label>
@@ -159,56 +142,89 @@
       </div>
     </form>
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('medicalModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveMedical()">Save Changes</button>
+      <button type="button" class="btn btn-secondary" onclick="closeModal('medicalModal')">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveMedical()">Save Changes</button>
     </div>
   </div>
 </div>
 
 <!-- Allergy Modal -->
-<div class="modal-overlay" id="allergyModal">
-  <div class="modal-card">
-    <h3>Add Allergy</h3>
+<div class="modal-overlay" id="allergyModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="allergyModalTitle" tabindex="-1">
+    <h3 id="allergyModalTitle">Add Allergy</h3>
     <form id="allergyForm" class="form-grid">
       <div class="form-group"><label>Allergen</label><input name="allergen" required placeholder="e.g. Penicillin"></div>
       <div class="form-group">
         <label>Severity</label>
         <select name="severity" required><option value="mild">Mild</option><option value="moderate">Moderate</option><option value="severe">Severe</option></select>
       </div>
-      <div class="form-group" style="grid-column:1/-1;"><label>Notes</label><textarea name="notes" placeholder="Additional notes..."></textarea></div>
+      <div class="form-group span-all"><label>Notes</label><textarea name="notes" placeholder="Additional notes..."></textarea></div>
     </form>
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('allergyModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveAllergy()">Add Allergy</button>
+      <button type="button" class="btn btn-secondary" onclick="closeModal('allergyModal')">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveAllergy()">Add Allergy</button>
     </div>
   </div>
 </div>
 
 <!-- Family History Modal -->
-<div class="modal-overlay" id="familyModal">
-  <div class="modal-card">
-    <h3>Add Family History</h3>
+<div class="modal-overlay" id="familyModal" aria-hidden="true">
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="familyModalTitle" tabindex="-1">
+    <h3 id="familyModalTitle">Add Family History</h3>
     <form id="familyForm" class="form-grid">
       <div class="form-group"><label>Condition</label><input name="condition" required placeholder="e.g. Diabetes"></div>
       <div class="form-group"><label>Relation</label><input name="relation" required placeholder="e.g. Father"></div>
-      <div class="form-group" style="grid-column:1/-1;"><label>Notes</label><textarea name="notes" placeholder="Additional notes..."></textarea></div>
+      <div class="form-group span-all"><label>Notes</label><textarea name="notes" placeholder="Additional notes..."></textarea></div>
     </form>
     <div class="modal-actions">
-      <button class="btn btn-secondary" onclick="closeModal('familyModal')">Cancel</button>
-      <button class="btn btn-primary" onclick="saveFamily()">Add Entry</button>
+      <button type="button" class="btn btn-secondary" onclick="closeModal('familyModal')">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveFamily()">Add Entry</button>
     </div>
   </div>
 </div>
 {% endblock %}
 {% block extra_js %}
 <script>
-function openModal(id) { document.getElementById(id).classList.add("active"); }
-function closeModal(id) { document.getElementById(id).classList.remove("active"); }
+let modalReturnFocus = null;
+
+function openModal(id) {
+  const modal = document.getElementById(id);
+  modalReturnFocus = document.activeElement;
+  modal.classList.add("active");
+  modal.setAttribute("aria-hidden", "false");
+  document.body.classList.add("modal-open");
+  requestAnimationFrame(() => (modal.querySelector("input, select, textarea, button") || modal.querySelector(".modal-card")).focus());
+}
+
+function closeModal(id) {
+  const modal = document.getElementById(id);
+  modal.classList.remove("active");
+  modal.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("modal-open");
+  if (modalReturnFocus) modalReturnFocus.focus();
+}
 
 // Close modals on overlay click
-document.querySelectorAll(".modal-overlay").forEach(m => {
-  m.addEventListener("click", (e) => { if (e.target === m) m.classList.remove("active"); });
+document.querySelectorAll(".modal-overlay").forEach((modal) => {
+  modal.addEventListener("click", (event) => { if (event.target === modal) closeModal(modal.id); });
+  modal.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") closeModal(modal.id);
+    if (event.key !== "Tab") return;
+    const focusable = [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [href]')];
+    if (!focusable.length) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  });
 });
+
+function validateForm(formId) {
+  const form = document.getElementById(formId);
+  if (form.checkValidity()) return true;
+  form.reportValidity();
+  return false;
+}
 
 function formToJSON(formId) {
   const data = {};
@@ -217,6 +233,7 @@ function formToJSON(formId) {
 }
 
 async function savePersonal() {
+  if (!validateForm("personalForm")) return;
   showLoading("Saving personal info...");
   try {
     await API.post("/auth/profile/", formToJSON("personalForm"));
@@ -228,6 +245,7 @@ async function savePersonal() {
 }
 
 async function saveMedical() {
+  if (!validateForm("medicalForm")) return;
   showLoading("Saving medical profile...");
   try {
     const data = formToJSON("medicalForm");
@@ -252,6 +270,7 @@ async function saveMedical() {
 }
 
 async function saveAllergy() {
+  if (!validateForm("allergyForm")) return;
   try {
     await API.post("/users/allergies/", formToJSON("allergyForm"));
     notify.success("Allergy added.");
@@ -270,6 +289,7 @@ async function deleteAllergy(id) {
 }
 
 async function saveFamily() {
+  if (!validateForm("familyForm")) return;
   try {
     await API.post("/users/family-history/", formToJSON("familyForm"));
     notify.success("Family history added.");
