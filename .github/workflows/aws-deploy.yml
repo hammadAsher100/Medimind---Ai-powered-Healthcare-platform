@@ -36,6 +36,7 @@ jobs:
           test -f "${COMPOSE_DIRECTORY}/docker/fastapi.Dockerfile"
           test -f "${COMPOSE_DIRECTORY}/docker/django.Dockerfile"
           test -f "${COMPOSE_DIRECTORY}/docker/nginx.Dockerfile"
+          test -f "${COMPOSE_DIRECTORY}/nginx/nginx.conf"
 
       - name: Create validation environment
         working-directory: ${{ env.COMPOSE_DIRECTORY }}
@@ -46,6 +47,24 @@ jobs:
         working-directory: ${{ env.COMPOSE_DIRECTORY }}
         shell: bash
         run: docker compose config --quiet
+
+      - name: Validate production Nginx configuration
+        working-directory: ${{ env.COMPOSE_DIRECTORY }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          CERT_ROOT=$(mktemp -d)
+          mkdir -p "$CERT_ROOT/live/medimind-ai.online"
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -subj "/CN=medimind-ai.online" \
+            -keyout "$CERT_ROOT/live/medimind-ai.online/privkey.pem" \
+            -out "$CERT_ROOT/live/medimind-ai.online/fullchain.pem"
+          docker run --rm \
+            --add-host django:127.0.0.1 \
+            --add-host fastapi:127.0.0.1 \
+            -v "$PWD/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
+            -v "$CERT_ROOT:/etc/letsencrypt:ro" \
+            nginx:1.25-alpine nginx -t
 
   build-and-push:
     name: Build and Push Images
@@ -173,10 +192,13 @@ jobs:
           APP_ROOT="/opt/medimind/app"
           COMPOSE_DIR="$APP_ROOT/medimind-ai"
           MODEL_DIR="/opt/medimind/models"
+          CERTBOT_CONF="/opt/medimind/certbot/conf"
+          CERTBOT_WEBROOT="/opt/medimind/certbot/www"
+          CERT_FULLCHAIN="$CERTBOT_CONF/live/medimind-ai.online/fullchain.pem"
+          CERT_PRIVATE_KEY="$CERTBOT_CONF/live/medimind-ai.online/privkey.pem"
           ENV_BACKUP="/tmp/medimind-production.env"
 
-          mkdir -p "$MODEL_DIR"
-          chown -R ec2-user:ec2-user /opt/medimind
+          mkdir -p "$MODEL_DIR" "$CERTBOT_WEBROOT/.well-known/acme-challenge"
           git config --system --add safe.directory "$APP_ROOT" || true
 
           if [ ! -d "$APP_ROOT/.git" ]; then
@@ -194,7 +216,7 @@ jobs:
 
           cd "$APP_ROOT"
           git fetch origin main
-          git reset --hard origin/main
+          git reset --hard "__DEPLOYED_COMMIT__"
           git clean -fd
 
           if [ -f "$ENV_BACKUP" ]; then
@@ -203,7 +225,20 @@ jobs:
           fi
 
           test -f "$COMPOSE_DIR/.env"
+          test "$(git rev-parse HEAD)" = "__DEPLOYED_COMMIT__"
           git log -1 --oneline
+
+          echo "Verifying persistent Let's Encrypt certificate files"
+          test -s "$CERT_FULLCHAIN"
+          test -s "$CERT_PRIVATE_KEY"
+          openssl x509 -in "$CERT_FULLCHAIN" -noout -subject -issuer -enddate
+          openssl x509 -in "$CERT_FULLCHAIN" -noout -checkend 86400
+
+          RENEWAL_CONFIG="$CERTBOT_CONF/renewal/medimind-ai.online.conf"
+          if [ -f "$RENEWAL_CONFIG" ] && grep -Eq '^authenticator[[:space:]]*=[[:space:]]*standalone' "$RENEWAL_CONFIG"; then
+            echo "WARNING: Certbot renewal is still configured for standalone mode."
+            echo "Migrate it once to the documented webroot renewal command before certificate expiry."
+          fi
 
           S3_OBJECT_COUNT=$(aws s3api list-objects-v2 \
             --region "$AWS_REGION" \
@@ -264,11 +299,24 @@ jobs:
           echo "Stopping and removing the existing Compose application"
           docker compose down --remove-orphans --timeout 60
 
+          echo "Removing only unused previous MediMind application images to make room"
+          for image_ref in \
+            __DOCKERHUB_NAMESPACE__/medimind-django:latest \
+            __DOCKERHUB_NAMESPACE__/medimind-fastapi:latest \
+            __DOCKERHUB_NAMESPACE__/medimind-nginx:latest; do
+            if docker image inspect "$image_ref" >/dev/null 2>&1; then
+              docker image rm "$image_ref"
+            fi
+          done
+          docker image prune -f
+          df -h /
+          docker system df || true
+
           echo "Pulling the application images published by GitHub Actions"
-          docker compose pull django fastapi nginx
+          docker compose pull --quiet django fastapi nginx
 
           echo "Recreating the complete Compose application from the pulled images"
-          docker compose up -d --force-recreate --remove-orphans
+          docker compose up -d --no-build --force-recreate --remove-orphans
 
           echo "Waiting for PostgreSQL"
           for attempt in $(seq 1 30); do
@@ -332,6 +380,20 @@ jobs:
           print(f"DEBUG={settings.DEBUG}")
           assert settings_module == "medimind.settings.production"
           assert settings.DEBUG is False
+          assert settings.SECURE_SSL_REDIRECT is True
+          assert settings.SESSION_COOKIE_SECURE is True
+          assert settings.CSRF_COOKIE_SECURE is True
+          assert settings.SECURE_HSTS_SECONDS >= 300
+          assert settings.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
+
+          required_hosts = {"medimind-ai.online", "www.medimind-ai.online"}
+          required_origins = {
+              "https://medimind-ai.online",
+              "https://www.medimind-ai.online",
+          }
+          assert required_hosts.issubset(set(settings.ALLOWED_HOSTS))
+          assert required_origins.issubset(set(settings.CSRF_TRUSTED_ORIGINS))
+          assert required_origins.issubset(set(settings.CORS_ALLOWED_ORIGINS))
           PY
 
           echo "Checking model mount"
@@ -450,22 +512,75 @@ jobs:
           print("All deployed model smoke tests passed")
           PY
 
-          echo "Checking application"
-          HTTP_STATUS="000"
+          echo "Validating Nginx and application health"
+          docker compose exec -T nginx nginx -t
 
+          docker compose exec -T fastapi python - <<'PY'
+          import json
+          import urllib.request
+
+          with urllib.request.urlopen("http://127.0.0.1:8001/health", timeout=20) as response:
+              body = json.loads(response.read().decode())
+              assert response.status == 200
+              print("FastAPI health:", body)
+          PY
+
+          docker compose exec -T django python - <<'PY'
+          import http.client
+
+          connection = http.client.HTTPConnection("127.0.0.1", 8000, timeout=20)
+          connection.request(
+              "GET",
+              "/",
+              headers={
+                  "Host": "medimind-ai.online",
+                  "X-Forwarded-Proto": "https",
+              },
+          )
+          response = connection.getresponse()
+          print("Django health status:", response.status)
+          assert response.status in {200, 301, 302}
+          connection.close()
+          PY
+
+          echo "Verifying HTTP redirects to HTTPS"
+          REDIRECT_HEADERS=$(curl --silent --show-error --dump-header - --output /dev/null \
+            --max-time 20 \
+            --resolve medimind-ai.online:80:127.0.0.1 \
+            http://medimind-ai.online/)
+          echo "$REDIRECT_HEADERS"
+          echo "$REDIRECT_HEADERS" | grep -Eq '^HTTP/[0-9.]+ 301'
+          echo "$REDIRECT_HEADERS" | grep -Eiq '^location: https://medimind-ai\.online/'
+
+          echo "Verifying production HTTPS"
+          HTTPS_STATUS="000"
           for attempt in $(seq 1 18); do
-            HTTP_STATUS=$(curl --silent --output /dev/null --write-out "%{http_code}" --max-time 20 http://localhost/ || echo "000")
-            echo "HTTP attempt $attempt: $HTTP_STATUS"
+            HTTPS_STATUS=$(curl --silent --show-error --output /dev/null \
+              --write-out "%{http_code}" \
+              --max-time 30 \
+              --resolve medimind-ai.online:443:127.0.0.1 \
+              https://medimind-ai.online/ || echo "000")
+            echo "HTTPS attempt $attempt: $HTTPS_STATUS"
 
-            case "$HTTP_STATUS" in
+            case "$HTTPS_STATUS" in
               200|301|302)
                 break
                 ;;
             esac
 
-            [ "$attempt" -eq 18 ] && docker compose logs --tail=200 nginx django && exit 1
+            [ "$attempt" -eq 18 ] && docker compose logs --tail=250 nginx django && exit 1
             sleep 10
           done
+
+          PUBLIC_HTTPS_STATUS=$(curl --silent --show-error --output /dev/null \
+            --write-out "%{http_code}" \
+            --max-time 30 \
+            https://medimind-ai.online/)
+          echo "Public HTTPS status: $PUBLIC_HTTPS_STATUS"
+          case "$PUBLIC_HTTPS_STATUS" in
+            200|301|302) ;;
+            *) docker compose logs --tail=250 nginx django; exit 1 ;;
+          esac
 
           echo "Final container status"
           docker compose ps -a
@@ -513,6 +628,8 @@ jobs:
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__AWS_REGION__/${AWS_DEPLOY_REGION}}"
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_BUCKET__/${NORMALIZED_S3_BUCKET}}"
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_PREFIX__/${NORMALIZED_S3_PREFIX}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__DEPLOYED_COMMIT__/${DEPLOYED_COMMIT}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__DOCKERHUB_NAMESPACE__/${DOCKERHUB_NAMESPACE}}"
 
           PARAMETERS=$(jq -n --arg command "$DEPLOY_SCRIPT" '{commands: [$command]}')
 
@@ -538,7 +655,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          for attempt in $(seq 1 120); do
+          for attempt in $(seq 1 180); do
             STATUS=$(aws ssm get-command-invocation \
               --region "$AWS_DEPLOY_REGION" \
               --command-id "$COMMAND_ID" \

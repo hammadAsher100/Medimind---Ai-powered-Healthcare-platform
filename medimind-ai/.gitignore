@@ -12,6 +12,9 @@ env/
 *.db
 
 *.pem
+*.key
+*.crt
+certbot/
 temp_key*
 
 aws_setup/
