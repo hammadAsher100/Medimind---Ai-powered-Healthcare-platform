@@ -1,3 +1,4 @@
+import mimetypes
 import os
 
 from django.conf import settings
@@ -151,7 +152,7 @@ def report_download(request, pk):
         report.file,
         as_attachment=True,
         filename=os.path.basename(report.file.name),
-        content_type="application/pdf",
+        content_type=mimetypes.guess_type(report.file.name)[0] or "application/octet-stream",
     )
 
 

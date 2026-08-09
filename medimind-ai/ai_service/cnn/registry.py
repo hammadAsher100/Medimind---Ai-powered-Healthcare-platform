@@ -110,7 +110,7 @@ class CNNModelRegistry:
         processed = preprocess_image(image_bytes, config, filename=filename, content_type=content_type)
         raw_prediction = self.models[model_id].predict(processed.batch, verbose=0)
         probabilities = self._probabilities(config, raw_prediction)
-        predicted_class = max(probabilities, key=probabilities.get)
+        predicted_class = self._predicted_class(config, raw_prediction, probabilities)
         confidence = float(probabilities[predicted_class])
         
         # Determine predicted index for binary model
@@ -120,12 +120,13 @@ class CNNModelRegistry:
             predicted_index = 0
 
         logger.info(
-            f"Prediction Log -> File: {filename} | "
-            f"Raw output: {raw_prediction} | "
-            f"Probabilities: {probabilities} | "
-            f"Predicted index: {predicted_index} | "
-            f"Predicted class: {predicted_class} | "
-            f"Confidence: {confidence}"
+            "CNN prediction completed model_id=%s predicted_class=%s confidence=%.4f "
+            "threshold=%.3f input_shape=%s",
+            model_id,
+            predicted_class,
+            confidence,
+            config.threshold,
+            tuple(processed.batch.shape),
         )
 
         # ── Grad-CAM heatmap (only for loaded Keras CNN models) ─────────
@@ -156,16 +157,17 @@ class CNNModelRegistry:
         # If trust is too low, override status to "abstain"
         if trust_score.trust_status == "abstain":
             logger.warning(
-                f"Trust gate triggered ABSTAIN for {filename}: "
-                f"overall={trust_score.overall_score:.3f}, "
-                f"confidence={trust_score.confidence_score:.3f}, "
-                f"quality={trust_score.image_quality_score:.3f}"
+                "CNN trust gate abstained model_id=%s overall=%.3f confidence=%.3f quality=%.3f",
+                model_id,
+                trust_score.overall_score,
+                trust_score.confidence_score,
+                trust_score.image_quality_score,
             )
 
         return {
             "model_id": model_id,
             "model_name": config.display_name,
-            "model_version": "pneumonia_xray_v1",
+            "model_version": "pneumonia_mobilenetv2_v2",
             "disease": config.disease,
             "modality": config.modality,
             "predicted_class": predicted_class,
@@ -192,7 +194,7 @@ class CNNModelRegistry:
                 "inference_backend": self.backends.get(model_id, "unknown"),
                 "warning": self.warnings.get(model_id),
                 "model_name": config.display_name,
-                "model_version": "pneumonia_xray_v1",
+                "model_version": "pneumonia_mobilenetv2_v2",
                 "analysis_time": datetime.now(timezone.utc).isoformat(),
                 "processing_status": "completed",
                 "model_path": str(config.model_path),
@@ -221,6 +223,17 @@ class CNNModelRegistry:
             config.labels.get(index, f"class_{index}"): float(probability)
             for index, probability in enumerate(values)
         }
+
+    def _predicted_class(
+        self,
+        config: CNNModelConfig,
+        raw_prediction: Any,
+        probabilities: dict[str, float],
+    ) -> str:
+        values = np.asarray(raw_prediction, dtype=np.float32).reshape(-1)
+        if values.size == 1:
+            return config.labels[1] if values[0] >= config.threshold else config.labels[0]
+        return max(probabilities, key=probabilities.get)
 
     def _diagnosis_text(self, config: CNNModelConfig, predicted_class: str, confidence: float) -> str:
         percentage = round(confidence * 100, 1)

@@ -103,8 +103,8 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_REFERRER_POLICY = "same-origin"
 
 # ── Upload Limits ────────────────────────────────────────
-DATA_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB
-FILE_UPLOAD_MAX_MEMORY_SIZE = 5 * 1024 * 1024  # 5 MB
+DATA_UPLOAD_MAX_MEMORY_SIZE = 25 * 1024 * 1024  # Allows a 20 MB file plus multipart overhead
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2_621_440  # Stream files larger than 2.5 MB to a temporary file
 DATA_UPLOAD_MAX_NUMBER_FIELDS = 100
 
 LANGUAGE_CODE = "en-us"

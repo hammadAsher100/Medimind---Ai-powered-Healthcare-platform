@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile, status
 
 from cnn.preprocessing import ImageValidationError
@@ -7,6 +9,7 @@ from cnn.registry import CNNModelRegistry, CNNModelUnavailable
 
 
 router = APIRouter(prefix="/cnn", tags=["cnn-inference"])
+logger = logging.getLogger(__name__)
 
 
 def _registry(request: Request) -> CNNModelRegistry:
@@ -43,5 +46,5 @@ async def predict_cnn_model(request: Request, model_id: str, file: UploadFile = 
     except CNNModelUnavailable as exc:
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"CNN inference failed: {exc}") from exc
-
+        logger.exception("Unexpected CNN inference failure for model_id=%s", model_id)
+        raise HTTPException(status_code=500, detail="Unable to complete image analysis.") from exc

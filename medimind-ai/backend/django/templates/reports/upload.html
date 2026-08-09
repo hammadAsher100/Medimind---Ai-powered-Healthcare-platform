@@ -10,12 +10,12 @@
 
 <form class="card section-gap" id="uploadReportForm" enctype="multipart/form-data">
   <label class="upload-zone" id="uploadZone">
-    <input class="file-input-visually-hidden" id="reportFile" name="file" type="file" accept="application/pdf" required>
+    <input class="file-input-visually-hidden" id="reportFile" name="file" type="file" accept="application/pdf,image/png,image/jpeg,.pdf,.png,.jpg,.jpeg" required>
     <div>
       <div class="image-drop-icon" style="margin:0 auto var(--sp-3);">▤</div>
-      <strong>Drop your PDF here</strong>
+      <strong>Drop your report here</strong>
       <p>or <span style="color:var(--accent); font-weight:700;">Browse Files</span></p>
-      <p>Supported: PDF files up to 20 MB. Blood reports, lab reports, imaging reports.</p>
+      <p>Supported: PDF, PNG, and JPG files up to 20 MB.</p>
     </div>
   </label>
   <div id="fileInfo" class="card" style="display:none; margin-top:var(--sp-5);"></div>
@@ -83,8 +83,10 @@ uploadZone.addEventListener("drop", (event) => {
 document.getElementById("uploadReportForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const file = fileInput.files[0];
-  if (!file || file.type !== "application/pdf") {
-    notify.error("Choose a valid PDF report.");
+  const allowedTypes = new Set(["application/pdf", "image/png", "image/jpeg"]);
+  const allowedExtensions = /\.(pdf|png|jpe?g)$/i;
+  if (!file || (file.type && !allowedTypes.has(file.type)) || !allowedExtensions.test(file.name)) {
+    notify.error("Choose a valid PDF, PNG, or JPG report.");
     return;
   }
   if (file.size > 20 * 1024 * 1024) {
@@ -95,13 +97,22 @@ document.getElementById("uploadReportForm").addEventListener("submit", async (ev
   submitButton.disabled = true;
   submitButton.setAttribute("aria-busy", "true");
   const formData = new FormData(event.target);
-  showLoading("Analyzing your report: PDF uploaded, extracting text, AI reviewing values...");
+  showLoading("Uploading your report and reviewing its clinical values...");
   try {
-    await API.upload("/reports/upload/", formData);
-    notify.success("Report analyzed successfully");
+    const result = await API.upload("/reports/upload/", formData);
+    if (result.analysis_status === "completed") {
+      notify.success("Report uploaded and analyzed successfully");
+    } else {
+      notify.success("Report uploaded. AI analysis will need to be retried later.");
+    }
     window.location.href = "/reports/";
   } catch (error) {
-    notify.error(error.message || "Report upload failed. Please try a clear PDF file.");
+    console.error("Report upload failed", {
+      status: error.status,
+      contentType: error.contentType,
+      error,
+    });
+    notify.error(error.message || "Report upload failed. Please try a clear PDF or image.");
   } finally {
     hideLoading();
     submitButton.disabled = false;

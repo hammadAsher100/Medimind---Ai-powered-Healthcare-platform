@@ -166,7 +166,7 @@ def train_single_fold(
     print(f"  Train samples: {n_train}  Val samples: {n_val}")
     print(f"{'=' * 60}")
 
-    model = build_cnn(learning_rate=INITIAL_LR)
+    model = build_cnn(learning_rate=INITIAL_LR, fine_tune_layers=20)
     print(f"  Model: MobileNetV2 with fine-tuning")
 
     model_path = REGISTRY_DIR / f"cnn_pneumonia_v4_fold{fold + 1}.h5"
@@ -339,8 +339,7 @@ def train_final_model(all_paths: list[str], all_labels: list[int]) -> keras.Mode
     train_seq = FinalSequence(all_indices, all_paths, all_labels, augment=True)
     val_seq = FinalSequence(all_indices, all_paths, all_labels, augment=False)
 
-    model = build_cnn(learning_rate=INITIAL_LR,
-                      fine_tune_from=70)
+    model = build_cnn(learning_rate=INITIAL_LR, fine_tune_layers=20)
 
     model_path = REGISTRY_DIR / "cnn_pneumonia_v4.h5"
     final_model_path = REGISTRY_DIR / "cnn_pneumonia_v4_final.h5"

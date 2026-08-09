@@ -1,12 +1,16 @@
 """
 CNN model definition for chest X-ray pneumonia detection.
 
-Uses MobileNetV2 (pretrained on ImageNet) with fine-tuning of the last
-30 layers for better feature adaptation to X-ray domain.
+Uses MobileNetV2 (pretrained on ImageNet) with a lightweight classification
+head. Input normalization is embedded in the model so training and production
+both accept RGB float images in the [0, 1] range.
 
 Architecture:
-  MobileNetV2 (top 30 layers unfrozen) → GlobalAveragePooling2D →
-  Dense(128, relu) → BatchNorm → Dropout(0.4) → Dense(1, sigmoid)
+  [0,1] to [-1,1] rescaling → MobileNetV2 →
+  GlobalAveragePooling2D → Dropout → Dense(1, sigmoid)
+
+Training-only augmentation is applied by ``ml/cnn/train.py`` and is not
+serialized into the production artifact.
 """
 from __future__ import annotations
 
@@ -39,8 +43,8 @@ def f1_score(y_true, y_pred):
 
 def build_cnn(
     input_shape: tuple[int, int, int] = (224, 224, 3),
-    learning_rate: float = 1e-4,
-    fine_tune_from: int | None = 70,
+    learning_rate: float = 1e-3,
+    fine_tune_layers: int = 0,
 ) -> Model:
     """Build and compile the pneumonia detection CNN.
 
@@ -50,9 +54,9 @@ def build_cnn(
         Image dimensions (H, W, C).
     learning_rate : float
         Adam optimizer learning rate.
-    fine_tune_from : int, optional
-        Unfreeze base layers starting from this layer index
-        for fine-tuning.  Default 70 unfreezes top layers.
+    fine_tune_layers : int
+        Number of final MobileNetV2 layers to unfreeze. Batch-normalization
+        layers remain frozen for stable small-batch fine-tuning.
 
     Returns
     -------
@@ -65,30 +69,55 @@ def build_cnn(
         weights="imagenet",
     )
 
-    # Fine-tune: freeze early layers, unfreeze top layers
-    if fine_tune_from is not None:
-        base_model.trainable = True
-        for layer in base_model.layers[:fine_tune_from]:
+    base_model.trainable = fine_tune_layers > 0
+    if fine_tune_layers > 0:
+        for layer in base_model.layers[:-fine_tune_layers]:
             layer.trainable = False
-    else:
-        base_model.trainable = False
+        for layer in base_model.layers[-fine_tune_layers:]:
+            if isinstance(layer, layers.BatchNormalization):
+                layer.trainable = False
 
     # ── Classification head ──────────────────────────────────────────────
     inputs = keras.Input(shape=input_shape)
-    # Do not hardcode training=True, otherwise BN will fail on batch_size=1 during inference
-    x = base_model(inputs, training=False)
+    x = layers.Rescaling(scale=2.0, offset=-1.0, name="mobilenet_preprocessing")(inputs)
+    # Batch normalization stays in inference mode during transfer learning.
+    x = base_model(x, training=False)
     x = layers.GlobalAveragePooling2D()(x)
-    x = layers.Dense(128, activation="relu", name="head_dense")(x)
-    x = layers.BatchNormalization()(x)
-    x = layers.Dropout(0.5)(x)
+    x = layers.Dropout(0.35)(x)
     outputs = layers.Dense(1, activation="sigmoid", name="output")(x)
 
     model = Model(inputs, outputs, name="pneumonia_cnn")
 
     model.compile(
         optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
-        loss="binary_crossentropy",
-        metrics=["accuracy", precision, recall, f1_score],
+        loss=keras.losses.BinaryCrossentropy(label_smoothing=0.02),
+        metrics=[
+            "accuracy",
+            keras.metrics.Precision(name="precision"),
+            keras.metrics.Recall(name="recall"),
+            keras.metrics.AUC(name="auc"),
+        ],
     )
 
     return model
+
+
+def enable_fine_tuning(model: Model, fine_tune_layers: int = 20, learning_rate: float = 1e-5) -> None:
+    """Unfreeze the final non-BN backbone layers and recompile at a low LR."""
+    base_model = model.get_layer("mobilenetv2_1.00_224")
+    base_model.trainable = True
+    for layer in base_model.layers[:-fine_tune_layers]:
+        layer.trainable = False
+    for layer in base_model.layers[-fine_tune_layers:]:
+        layer.trainable = not isinstance(layer, layers.BatchNormalization)
+
+    model.compile(
+        optimizer=keras.optimizers.Adam(learning_rate=learning_rate),
+        loss=keras.losses.BinaryCrossentropy(label_smoothing=0.02),
+        metrics=[
+            "accuracy",
+            keras.metrics.Precision(name="precision"),
+            keras.metrics.Recall(name="recall"),
+            keras.metrics.AUC(name="auc"),
+        ],
+    )

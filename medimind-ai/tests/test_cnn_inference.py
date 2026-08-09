@@ -11,6 +11,7 @@ from __future__ import annotations
 import importlib
 import io
 import os
+from dataclasses import replace
 from pathlib import Path
 
 import numpy as np
@@ -25,8 +26,9 @@ from cnn.preprocessing import (
     validate_image_upload,
     validate_chest_xray,
 )
-from cnn.config import get_cnn_model_configs
+from cnn.config import _artifact_threshold, get_cnn_model_configs
 from cnn.registry import CNNModelRegistry
+from ml.cnn.preprocess import preprocess_single_image
 
 _HAS_KERAS = importlib.util.find_spec("keras") is not None
 
@@ -94,6 +96,51 @@ class TestPreprocessing:
         r1 = preprocess_image(normal_xray_bytes, self.config)
         r2 = preprocess_image(normal_xray_bytes, self.config)
         np.testing.assert_array_almost_equal(r1.batch, r2.batch)
+
+    def test_training_and_production_preprocessing_are_identical(self, normal_xray_bytes):
+        production = preprocess_image(normal_xray_bytes, self.config).batch
+        training = preprocess_single_image(normal_xray_bytes)
+
+        np.testing.assert_allclose(production, training, rtol=0, atol=0)
+
+
+class TestLabelMapping:
+    """Prevent sigmoid class inversion and ensure the configured threshold is honored."""
+
+    def test_sigmoid_probability_maps_to_pneumonia_label(self):
+        config = get_cnn_model_configs()["pneumonia_xray"]
+        registry = CNNModelRegistry(configs={"pneumonia_xray": config})
+
+        probabilities = registry._probabilities(config, np.array([[0.8]], dtype=np.float32))
+
+        assert probabilities["NORMAL"] == pytest.approx(0.2)
+        assert probabilities["PNEUMONIA"] == pytest.approx(0.8)
+
+    def test_binary_threshold_controls_class_without_inverting_labels(self):
+        config = replace(get_cnn_model_configs()["pneumonia_xray"], threshold=0.7)
+        registry = CNNModelRegistry(configs={"pneumonia_xray": config})
+
+        below = np.array([[0.69]], dtype=np.float32)
+        at_threshold = np.array([[0.70]], dtype=np.float32)
+
+        assert registry._predicted_class(config, below, registry._probabilities(config, below)) == "NORMAL"
+        assert (
+            registry._predicted_class(
+                config,
+                at_threshold,
+                registry._probabilities(config, at_threshold),
+            )
+            == "PNEUMONIA"
+        )
+
+    def test_retrained_h5_artifact_carries_its_validated_threshold(self, tmp_path):
+        import h5py
+
+        model_path = tmp_path / "cnn_pneumonia.h5"
+        with h5py.File(model_path, "w") as model_file:
+            model_file.attrs["medimind_classification_threshold"] = 0.37
+
+        assert _artifact_threshold(model_path) == pytest.approx(0.37)
 
 
 # ── CNN Prediction tests (require keras) ──────────────────────────────────
