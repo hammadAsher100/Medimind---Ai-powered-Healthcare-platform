@@ -1,376 +1,358 @@
-<div align="center">
+# MediMind AI
 
-<br>
+**AI-assisted healthcare decision support combining tabular risk models, chest X-ray analysis, medical report intelligence, explainable AI, and patient-facing health tools.**
 
-```
-███╗   ███╗███████╗██████╗ ██╗███╗   ███╗██╗███╗   ██╗██████╗      █████╗ ██╗
-████╗ ████║██╔════╝██╔══██╗██║████╗ ████║██║████╗  ██║██╔══██╗    ██╔══██╗██║
-██╔████╔██║█████╗  ██║  ██║██║██╔████╔██║██║██╔██╗ ██║██║  ██║    ███████║██║
-██║╚██╔╝██║██╔══╝  ██║  ██║██║██║╚██╔╝██║██║██║╚██╗██║██║  ██║    ██╔══██║██║
-██║ ╚═╝ ██║███████╗██████╔╝██║██║ ╚═╝ ██║██║██║ ╚████║██████╔╝    ██║  ██║██║
-╚═╝     ╚═╝╚══════╝╚═════╝ ╚═╝╚═╝     ╚═╝╚═╝╚═╝  ╚═══╝╚═════╝     ╚═╝  ╚═╝╚═╝
-```
+[![Python 3.11](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Django](https://img.shields.io/badge/Django-5.2-092E20?logo=django&logoColor=white)](https://www.djangoproject.com/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)](https://docs.docker.com/compose/)
+[![AWS](https://img.shields.io/badge/AWS-EC2-FF9900?logo=amazonwebservices&logoColor=white)](https://aws.amazon.com/ec2/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?logo=postgresql&logoColor=white)](https://www.postgresql.org/)
+[![Nginx](https://img.shields.io/badge/Nginx-HTTPS-009639?logo=nginx&logoColor=white)](https://nginx.org/)
 
-### An Intelligent Multi-Agent Healthcare Platform
+**[Live Demo](https://medimind-ai.online)** · **[GitHub Repository](https://github.com/hammadAsher100/Medimind---Ai-powered-Healthcare-platform)**
 
-_Disease Risk Assessment · Medical Report Analysis · Personalized Health Assistance_
+> **Medical disclaimer:** MediMind AI is intended for educational, research, and decision-support purposes. Its predictions and AI-generated recommendations are not medical diagnoses and should not replace evaluation or advice from qualified healthcare professionals.
 
-<br>
+## Overview
 
-![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![Django](https://img.shields.io/badge/Django-5.0-092E20?style=for-the-badge&logo=django&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
+MediMind brings common health-data workflows into one authenticated web application. Users can run structured disease-risk assessments, analyze chest X-rays, upload medical reports, review longitudinal health information, and receive human-readable educational guidance. Django owns the web experience and persisted patient data, while a separate FastAPI service runs machine-learning, image-analysis, explainability, and clinical-intelligence workloads.
 
-![Groq](https://img.shields.io/badge/Groq-LLaMA_3.3_70B-F55036?style=for-the-badge&logoColor=white)
-![Cohere](https://img.shields.io/badge/Cohere-embed--english--v3.0-39594E?style=for-the-badge&logoColor=white)
-![Qdrant](https://img.shields.io/badge/Qdrant-Vector_DB-DC244C?style=for-the-badge&logoColor=white)
-![MLflow](https://img.shields.io/badge/MLflow-2.13-0194E2?style=for-the-badge&logo=mlflow&logoColor=white)
-
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
-![Prometheus](https://img.shields.io/badge/Prometheus-Monitoring-E6522C?style=for-the-badge&logo=prometheus&logoColor=white)
-![Grafana](https://img.shields.io/badge/Grafana-Dashboards-F46800?style=for-the-badge&logo=grafana&logoColor=white)
-![SHAP](https://img.shields.io/badge/SHAP-Explainability-FF6B6B?style=for-the-badge&logoColor=white)
-
-<br>
-
-> ⚠️ **Medical Disclaimer** — MediMind AI is an educational tool only. It does not diagnose, prescribe, or replace professional medical advice. Always consult a qualified healthcare provider.
-
-<br>
-
-</div>
-
----
-
-**MediMind AI** is a production-oriented multi-agent healthcare platform that unifies clinical decision support, medical report intelligence, and personalized health guidance in one experience. It combines a Django web backend, a FastAPI AI service, and advanced ML models to help users understand risk, explore explanations, and review medical information with greater clarity.
-
-## ✨ Why this project stands out
-
-- 🧠 Multi-agent AI workflow for triage, reasoning, and health assistance
-- 🩺 Clinical decision support with explainable disease-risk predictions
-- 📸 Chest X-ray pneumonia screening with Grad-CAM visual explanations
-- 📊 Patient-state intelligence, lab trend analysis, and medication safety checks
-- 🔐 Built-in safety, disclaimers, and clinician review workflows for responsible use
-
-## 🧭 Table of contents
-
-- [Features](#features)
-- [Quick Start (Local, no Docker)](#quick-start-local-no-docker)
-- [Docker Deployment](#docker-deployment)
-- [Chest X-ray Analysis with Grad-CAM](#chest-x-ray-analysis-with-grad-cam)
-- [Disease Risk Prediction Models](#disease-risk-prediction-models)
-- [Architecture](#architecture)
-- [API Reference](#api-reference)
-- [Project Structure](#project-structure)
-- [Environment Variables](#environment-variables)
-- [Observability](#observability)
-- [Safety](#safety)
-
----
+The project is designed as an AI engineering and MLOps portfolio system—not as a clinically validated medical device.
 
 ## Features
 
-| Feature                               | Description                                                                                                                                               |
-| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Chest X-ray Pneumonia Screening**   | Upload a chest X-ray; CNN (VGG16) predicts NORMAL / PNEUMONIA with Grad-CAM heatmap overlay showing the regions that influenced the model's decision.     |
-| **Disease Risk Prediction**           | Models for diabetes, heart disease, chronic kidney disease, and stroke — each with SHAP-based factor explanations and LLM-generated interpretations.      |
-| **AI Health Assistant**               | Multi-agent chat (triage, symptom checker, health-education) powered by Groq / OpenRouter / Mistral.                                                      |
-| **Health Score**                      | Calculated from user vitals (BMI, blood pressure, glucose, cholesterol) with lifestyle recommendations.                                                   |
-| **Medical Reports**                   | Upload, compare, and view explainability for medical reports.                                                                                             |
-| **Predictions Dashboard**             | View all your risk assessments and X-ray analyses in one place.                                                                                           |
-| **Timeline**                          | Chronological log of health events, scores, and assessments.                                                                                              |
-| **Patient State Intelligence**        | Aggregates all data sources (observations, predictions, meds, allergies) into a unified patient snapshot with priority triage and missing-data detection. |
-| **Longitudinal Lab Intelligence**     | Tracks lab values over time, detects trends (improving/worsening), flags sudden changes and persistent abnormalities.                                     |
-| **Chest X-ray Trust Gate**            | Evaluates image quality, prediction confidence, and dataset similarity before surfacing results — automatically abstains when trust is insufficient.      |
-| **Counterfactual Health Simulator**   | "What if" scenarios: model risk changes from lifestyle modifications (quit smoking, reduce glucose, exercise more).                                       |
-| **Medication Safety Passport**        | Drug–drug interaction checks, allergy cross-reactivity detection, duplicate therapy alerts.                                                               |
-| **Clinical Contradiction Detection**  | Finds value discrepancies across lab sources and mismatches between prediction inputs and latest observations.                                            |
-| **Evidence-Linked Medical Assistant** | Every AI response carries numbered citations back to the observations, predictions, or reports that informed it.                                          |
-| **Clinician Review & Feedback**       | Clinicians accept/modify/reject AI recommendations; model feedback (correct/incorrect/hallucination) feeds back for quality monitoring.                   |
-| **FHIR R4 Patient Export**            | Exports patient records as a FHIR R4 Bundle (Patient, Observation, RiskAssessment, AllergyIntolerance) for interoperability.                              |
+- **Risk assessment:** diabetes, heart disease, chronic kidney disease, and stroke prediction flows with risk percentages and risk levels.
+- **Chest X-ray analysis:** MobileNetV2-based NORMAL/PNEUMONIA classification, Grad-CAM visualization, and a trust gate that can abstain on unsuitable or low-confidence inputs.
+- **Medical reports:** authenticated PDF, JPEG, and PNG upload; text extraction/OCR; analysis; comparison; persistent media storage; and protected retrieval.
+- **Explainable AI:** optional SHAP factor contributions for tabular models and Grad-CAM heatmaps for the pneumonia classifier.
+- **AI-assisted guidance:** Groq/OpenRouter provider abstraction converts structured results into cautious, readable educational text when configured, with deterministic fallback text where implemented.
+- **Patient workspace:** authentication, profile and medical history, dashboard, health score, timeline, saved predictions, reports, and reviews.
+- **Clinical intelligence:** patient-state summaries, longitudinal lab trends, medication-safety checks, counterfactual simulation, conflict detection, clinician feedback, and FHIR R4 export.
+- **Knowledge and assistant tools:** multi-agent assistant routes plus optional Cohere embeddings and Qdrant-backed retrieval.
+- **Operations:** Docker Compose, PostgreSQL, MLflow, Prometheus, Grafana, persistent volumes, service health checks, and HTTPS deployment on AWS EC2.
 
----
+## Machine Learning Models
 
-## Quick Start (Local, no Docker)
+### Model summary
 
-The recommended way to run MediMind locally uses SQLite, the local `.venv`, and a single launcher script.
+| Model | Task | Current implementation | Explainability | Output |
+|---|---|---|---|---|
+| Diabetes | Tabular binary risk prediction | Repository training selects among logistic regression, random forest, gradient boosting, and XGBoost; tracked run selected random forest | Optional SHAP | Risk percentage, Low/Medium/High level, binary prediction |
+| Heart disease | Tabular binary risk prediction | Same candidate pipeline; tracked run selected XGBoost | Optional SHAP | Risk percentage, risk level, binary prediction |
+| Chronic kidney disease | Tabular binary risk prediction | Same candidate pipeline; tracked run selected random forest | Optional SHAP | Risk percentage, risk level, binary prediction |
+| Stroke | Tabular binary risk prediction | Same candidate pipeline; tracked run selected random forest | Optional SHAP | Risk percentage, risk level, binary prediction |
+| Pneumonia | Chest X-ray binary classification | MobileNetV2 transfer learning with a sigmoid classification head | Grad-CAM and trust assessment | NORMAL/PNEUMONIA, probabilities, confidence, heatmap, trust status |
 
-### Prerequisites
+Production tabular artifacts are loaded from `${MODEL_BASE_DIR}/{disease}/` as `model.joblib`, `scaler.joblib`, and `feature_columns.json`; a SHAP explainer is loaded when present. The CNN is loaded from `CNN_PNEUMONIA_MODEL_PATH`, which defaults in production to `/opt/medimind/models/pneumonia/cnn_pneumonia.h5`. These large model files are synchronized from S3 onto EC2 and mounted read-only into FastAPI—they are not stored in Git or baked into application images.
 
-- Python 3.11+ (the project includes a `.venv` at the repository root)
-- A `.env` file with LLM API keys (see [Environment Variables](#environment-variables))
+<details>
+<summary><strong>Diabetes risk prediction</strong></summary>
 
-### Setup
+- **Purpose:** estimate binary diabetes risk from structured health measurements.
+- **Inputs (8):** glucose, blood pressure, skin thickness, insulin, BMI, diabetes pedigree function, age, and pregnancies.
+- **Feature engineering:** BMI category, age group, and glucose category.
+- **Training preprocessing:** normalized column names, median numeric imputation, most-frequent categorical imputation, lower-cased categories, one-hot encoding, standard scaling, target encoding, and SMOTE when applicable.
+- **Output:** class probability converted to a percentage, risk band, binary prediction, and optional explanation/recommendation fields.
+- **Repository dataset note:** the tracked local training artifact was generated from the deterministic synthetic-data helper (1,000 rows, seed 42). A separate downloader/training script references the Pima Indians Diabetes dataset. Neither constitutes clinical validation.
 
-```bash
-# 1. Activate the virtual environment
-source .venv/bin/activate        # Linux / macOS
-.venv\Scripts\activate            # Windows
+</details>
 
-# 2. Install all dependencies
-pip install -r requirements.txt
+<details>
+<summary><strong>Heart disease risk prediction</strong></summary>
 
-# 3. Run the application (migrates DB, seeds a preview account, starts both servers)
-python run_local.py
+- **Purpose:** estimate binary heart-disease risk.
+- **Inputs (13):** age, sex, chest-pain type, resting blood pressure, cholesterol, fasting blood sugar, resting ECG, maximum heart rate, exercise-induced angina, ST depression, ST slope, number of major vessels, and thalassemia category.
+- **Feature engineering:** cholesterol ratio and maximum-heart-rate/age interaction.
+- **Training preprocessing:** the shared imputation, encoding, scaling, class-balancing, stratified split, and five-fold model-selection pipeline.
+- **Dataset:** the tracked training run uses the 303-row UCI Cleveland-format dataset included in the repository; multi-valued disease targets are converted to binary labels.
+- **Output:** risk percentage, risk band, binary prediction, and optional explanation/recommendation fields.
+
+</details>
+
+<details>
+<summary><strong>Chronic kidney disease risk prediction</strong></summary>
+
+- **Purpose:** estimate binary chronic-kidney-disease risk.
+- **Inputs (24):** age; blood pressure; specific gravity; albumin; sugar; red blood cells; pus cells and clumps; bacteria; random glucose; blood urea; serum creatinine; sodium; potassium; hemoglobin; packed-cell volume; white- and red-blood-cell counts; hypertension; diabetes mellitus; coronary artery disease; appetite; pedal edema; and anemia.
+- **Feature engineering:** creatinine/blood-urea ratio and anemia flag.
+- **Training preprocessing:** the shared imputation, encoding, scaling, class-balancing, split, and model-selection pipeline.
+- **Repository dataset note:** the tracked local training artifact uses the deterministic synthetic-data helper (1,000 rows, seed 42). The public-data helper references a CKD dataset mirror, but the repository does not establish those downloaded artifacts as the deployed model.
+- **Output:** risk percentage, risk band, binary prediction, and optional explanation/recommendation fields.
+
+</details>
+
+<details>
+<summary><strong>Stroke risk prediction</strong></summary>
+
+- **Purpose:** estimate binary stroke risk.
+- **Inputs (10):** age, hypertension, heart disease, marital status, work type, residence type, average glucose, BMI, smoking status, and gender.
+- **Feature engineering:** combined hypertension/heart-disease indicator.
+- **Training preprocessing:** the shared imputation, encoding, scaling, class-balancing, split, and model-selection pipeline.
+- **Repository dataset note:** the tracked local training artifact uses the deterministic synthetic-data helper (1,000 rows, seed 42). The public-data helper references the commonly used Fedesoriano stroke dataset mirror, but the deployed artifact provenance is not committed.
+- **Output:** risk percentage, risk band, binary prediction, and optional explanation/recommendation fields.
+
+</details>
+
+<details>
+<summary><strong>Pneumonia chest X-ray classifier</strong></summary>
+
+- **Architecture:** ImageNet-pretrained MobileNetV2 (`include_top=False`), global average pooling, 35% dropout, and one sigmoid output. The training pipeline first trains the head, then can fine-tune the final 20 backbone layers while keeping batch-normalization layers frozen.
+- **Input contract:** image decoded to three-channel RGB, resized to 224×224 with antialiasing, converted to `float32`, scaled to `[0, 1]`, and batched. The model contains the MobileNetV2 `[-1, 1]` rescaling layer so training and inference share the same contract.
+- **Labels:** `NORMAL = 0`, `PNEUMONIA = 1`.
+- **Training controls:** seed 42, stratified train/validation split, held-out test directory, train-only augmentation, class weighting, early stopping, learning-rate reduction, and checkpointing.
+- **Thresholding:** the selected validation threshold is stored in the HDF5 model metadata and read at inference; `0.5` is the compatibility fallback.
+- **Explainability and safety:** Grad-CAM highlights influential image regions. A trust assessment combines image quality, confidence, and dataset similarity and can return an abstention instead of a diagnostic-style result.
+- **Dataset:** training expects a `chest_xray/{train,val,test}/{NORMAL,PNEUMONIA}` directory compatible with the established Chest X-Ray Pneumonia dataset layout. Dataset binaries and a pinned download source are not committed.
+- **Metrics:** the training code calculates accuracy, precision, recall/sensitivity, specificity, F1, ROC AUC, and a confusion matrix, with acceptance gates emphasizing sensitivity. No final CNN evaluation report is tracked, so this README does not publish an unverified score.
+
+</details>
+
+### Tracked tabular evaluation artifacts
+
+The following values come from the committed `training_metrics.json` files. They describe repository training runs—not clinical performance and not necessarily the externally managed production artifacts. Diabetes, kidney, and stroke used the synthetic local-data generator; heart used the UCI Cleveland-format file.
+
+| Tracked run | Selected model | Accuracy | Precision | Recall | F1 | ROC AUC |
+|---|---:|---:|---:|---:|---:|---:|
+| Diabetes | Random forest | 0.7951 | 0.8014 | 0.7847 | 0.7930 | 0.8628 |
+| Heart disease | XGBoost | 0.8030 | 0.8125 | 0.7879 | 0.8000 | 0.8430 |
+| Kidney disease | Random forest | 0.8292 | 0.8651 | 0.7786 | 0.8195 | 0.8951 |
+| Stroke | Random forest | 0.9335 | 0.9239 | 0.9444 | 0.9341 | 0.9865 |
+
+## Explainable AI
+
+MediMind separates four concepts that are easy to conflate:
+
+1. **Prediction** — the model's binary class estimate.
+2. **Risk percentage** — the positive-class probability expressed as a percentage and mapped to a risk band.
+3. **Explanation** — optional SHAP contributions showing which submitted features pushed a tabular result higher or lower, or a Grad-CAM heatmap for an X-ray.
+4. **Recommendation** — cautious educational text derived from the structured prediction and, when available, its explanatory factors.
+
+For example, an explanation may identify glucose or BMI as influential submitted variables without claiming that either variable proves a diagnosis. Production currently sets `ENABLE_SHAP_EXPLANATIONS=False`, so tabular predictions remain fully usable when SHAP output is absent; the interface treats detailed factor analysis as optional rather than as a prediction requirement.
+
+## AI Recommendation Layer
+
+The FastAPI provider layer supports **Groq** as the primary configured LLM service and **OpenRouter** as a fallback. It receives structured context such as risk level, percentage, and optional factor contributions, then requests readable educational guidance. Provider calls include bounded retries, and supported flows retain safe static text when LLM use is disabled or unavailable.
+
+Optional retrieval-augmented flows use **Cohere** embeddings and **Qdrant**. They can be disabled with feature flags, so they are shown as supporting capabilities rather than hard production dependencies. No credentials are stored in source control.
+
+## System Architecture
+
+```mermaid
+flowchart TB
+    User["User browser"] -->|HTTPS| Nginx["Nginx reverse proxy"]
+    Nginx -->|Pages, static, /api| Django["Django + DRF"]
+    Nginx -->|/ai| FastAPI["FastAPI AI service"]
+    Django -->|Internal HTTP| FastAPI
+    Django --> PostgreSQL[(PostgreSQL)]
+    Django --> Media[(Persistent report media)]
+    FastAPI --> Models["Tabular models + MobileNetV2 CNN"]
+    Models --> Explain["SHAP / Grad-CAM / trust gate"]
+    Explain --> Guidance["Recommendation provider"]
+    FastAPI -. optional .-> Qdrant[(Qdrant)]
+    Guidance -. configured providers .-> LLM["Groq / OpenRouter"]
+    S3[(S3 model storage)] -->|CI/CD sync| HostModels["EC2 model directory"]
+    HostModels -->|read-only mount| Models
+    Prometheus["Prometheus"] -->|scrape| Django
+    Prometheus -->|scrape| FastAPI
+    Grafana["Grafana"] --> Prometheus
+    MLflow["MLflow"] -. feature flagged .-> PostgreSQL
 ```
 
-The launcher starts:
+All services run in Docker on the EC2 host. Only Nginx publishes host ports; PostgreSQL, Qdrant, MLflow, Prometheus, Grafana, Django, and FastAPI remain on the Compose network.
 
-| Service | URL                     | Purpose                                |
-| ------- | ----------------------- | -------------------------------------- |
-| Django  | <http://127.0.0.1:8000> | Web UI, auth, reports, health score    |
-| FastAPI | <http://127.0.0.1:8001> | ML inference, AI agent, X-ray analysis |
+## Technology Stack
 
-**Login credentials:** `hammad` / `MediMind@12345`
+| Area | Technologies verified in the repository |
+|---|---|
+| Frontend | Django templates, HTML, CSS, JavaScript, Chart.js |
+| Web backend | Python 3.11, Django 5.2, Django REST Framework, Gunicorn |
+| AI service | FastAPI, Uvicorn, Pydantic |
+| ML / explainability | scikit-learn, XGBoost, TensorFlow/Keras, MobileNetV2, SHAP, Grad-CAM, imbalanced-learn |
+| Document intelligence | pdfplumber, Pillow, Tesseract OCR |
+| LLM / retrieval | Groq, OpenRouter HTTP integration, Cohere embeddings, Qdrant |
+| Data | PostgreSQL in production, SQLite for the local launcher, persistent Docker media volume |
+| MLOps / monitoring | MLflow, Prometheus, Grafana |
+| Infrastructure | Docker Compose, Nginx, Let's Encrypt TLS, AWS EC2, S3 model storage |
+| CI/CD | GitHub Actions, Docker Hub, AWS OIDC, Systems Manager deployment |
 
----
+## Production Deployment
 
-## Docker Deployment
+The production application runs at **[https://medimind-ai.online](https://medimind-ai.online)** on AWS EC2. Nginx terminates TLS, redirects HTTP to HTTPS, serves collected static files, and proxies Django and FastAPI. Let's Encrypt certificates, uploaded media, databases, monitoring data, and model files are persistent and remain outside disposable application containers.
 
-For a full production-like stack with PostgreSQL, Qdrant, MLflow, Prometheus, and Grafana:
-
-```bash
-docker compose up --build
+```mermaid
+flowchart LR
+    Push["Push to main"] --> Actions["GitHub Actions"]
+    Actions --> Validate["Validate Compose and Nginx"]
+    Validate --> Build["Build Django, FastAPI, Nginx images"]
+    Build --> Registry["Push latest + commit SHA to Docker Hub"]
+    Registry --> OIDC["AWS OIDC authentication"]
+    OIDC --> SSM["SSM command on EC2"]
+    SSM --> Checkout["Checkout exact Git commit"]
+    Checkout --> Sync["Sync external models from S3"]
+    Sync --> Replace["Compose down, pull, recreate"]
+    Replace --> Health["Service, model, Nginx, and HTTPS checks"]
+    Health --> Cleanup["Prune unused images"]
 ```
 
-| Service       | URL                      |
-| ------------- | ------------------------ |
-| Django API    | <http://localhost:18000> |
-| FastAPI AI    | <http://localhost:18001> |
-| Nginx gateway | <http://localhost:18080> |
-| MLflow        | <http://localhost:15000> |
-| Prometheus    | <http://localhost:19090> |
-| Grafana       | <http://localhost:13000> |
-| Qdrant        | <http://localhost:16333> |
-
----
-
-## Chest X-ray Analysis with Grad-CAM
-
-The CNN pneumonia screening module uses a **VGG16** backbone (fine-tuned on 2082 chest X-rays) wrapped in a Keras `Sequential` model with additional dense layers.
-
-### How to use
-
-1. Navigate to **Predictions → Chest X-ray Pneumonia**
-2. Upload a JPEG / PNG / WEBP chest X-ray image (max 20 MB)
-3. Click **Run Pneumonia Detection**
-4. The result card shows:
-   - **Prediction** — NORMAL or PNEUMONIA with confidence percentage
-   - **Prediction Probabilities** — bar chart for both classes
-   - **Grad-CAM Heatmap** — toggle between **Overlay** / **Heatmap** / **Original** views
-   - **Clinical Interpretation** — explanatory text about the highlighted regions
-   - **Clinical Recommendations** — next-step guidance
-   - **Assessment Summary** — natural-language report
-
-### Grad-CAM technical details
-
-- **Target layer:** `block5_conv3` (VGG16's last Conv2D, output shape 14×14×512)
-- **Algorithm:** Gradients of the predicted-class score w.r.t. conv feature maps are global-average-pooled, used to weight each feature map, summed, ReLU'd, and normalized
-- **Overlay:** Jet colormap composited at 40% transparency on the original image at its native resolution
-- **Fallback:** When the trained CNN model file is unavailable, a dataset-nearest-neighbor fallback is used (Grad-CAM shows `unavailable`)
-
----
-
-## Disease Risk Prediction Models
-
-Four ML models (trained with scikit-learn / XGBoost) provide risk assessments:
-
-| Model                      | Features                                                       | Interpretability                          |
-| -------------------------- | -------------------------------------------------------------- | ----------------------------------------- |
-| **Diabetes**               | glucose, BMI, age, blood pressure, insulin, etc.               | SHAP feature importance + LLM explanation |
-| **Heart Disease**          | chest pain type, resting BP, cholesterol, max heart rate, etc. | SHAP feature importance + LLM explanation |
-| **Chronic Kidney Disease** | serum creatinine, hemoglobin, albumin, blood urea, etc.        | SHAP feature importance + LLM explanation |
-| **Stroke**                 | age, hypertension, glucose level, BMI, smoking status, etc.    | SHAP feature importance + LLM explanation |
-
-### Training local models
-
-```bash
-.venv/Scripts/python.exe ai_service/ml_models/train_all_local.py
-```
-
-This generates synthetic training data (where no real dataset exists) and trains all four models, saving artifacts (`model.joblib`, `scaler.joblib`, `shap_explainer.joblib`, `feature_columns.json`) per disease.
-
----
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Nginx (18080)                         │
-│              Reverse proxy, SSL, static files             │
-└────┬────────────────────────────────────┬────────────────┘
-     │                                    │
-┌────▼──────────────┐          ┌──────────▼──────────────┐
-│  Django Backend   │          │   FastAPI AI Service    │
-│  :18000 / :8000   │          │    :18001 / :8001       │
-│                   │          │                          │
-│ • Users / Auth    │◄────────►│ • CNN pneumonia (VGG16)  │
-│ • Health Score    │  HTTP    │ • Grad-CAM heatmaps      │
-│ • Reports         │  sync    │ • Trust Gate (OOD +      │
-│ • Timeline        │          │   confidence + quality)  │
-│ • Recommendations │          │ • Disease risk models    │
-│ • Knowledge docs  │          │   (diabetes, heart,      │
-│ • Saved predictions│         │    kidney, stroke)       │
-│                   │          │ • Patient State Engine   │
-│ CLINICAL APPS     │          │ • Lab Trend Analysis     │
-│ • Clinical Intel  │          │ • Medication Safety      │
-│ • Medications     │          │ • Counterfactual Sim     │
-│ • Lab Trends      │          │ • Conflict Detection     │
-│ • Reviews         │          │ • Evidence Tracker       │
-│ • FHIR Export     │          │ • FHIR Export            │
-│                   │          │ • Multi-agent AI chat    │
-└────┬───────────────┘          • RAG (Qdrant vector DB)  │
-     │                         └──────────┬──────────────┘
-     │                                    │
-┌────▼──────────────┐          ┌──────────▼──────────────┐
-│   PostgreSQL      │          │    MLflow (15000)        │
-│   (Docker only)   │          │  Model registry &        │
-│                   │          │  experiment tracking     │
-└───────────────────┘          └─────────────────────────┘
-```
-
-### Local mode (run_local.py)
-
-- **Database:** SQLite (no PostgreSQL needed)
-- **LLM:** Uses Groq / OpenRouter / Mistral API keys from `.env`
-- **MLflow:** Disabled by default (`DISABLE_MLFLOW=true`)
-- **Qdrant:** Disabled by default (`DISABLE_QDRANT=true`)
-- **No Docker required**
-
----
-
-## API Reference
-
-### FastAPI AI Service (`http://127.0.0.1:8001`)
-
-| Method | Endpoint                  | Description                                               |
-| ------ | ------------------------- | --------------------------------------------------------- |
-| `GET`  | `/health`                 | Service health, model statuses                            |
-| `POST` | `/cnn/predict/{model_id}` | Upload X-ray → prediction + Grad-CAM heatmap              |
-| `GET`  | `/cnn/models`             | List loaded CNN models                                    |
-| `POST` | `/predict/{disease}`      | Disease risk prediction (diabetes, heart, kidney, stroke) |
-| `POST` | `/chat`                   | Multi-agent AI chat                                       |
-| `POST` | `/reports/extract`        | Extract structured data from a medical report             |
-| `POST` | `/reports/compare`        | Compare two medical reports                               |
-| `GET`  | `/rag/search?query=...`   | Knowledge-base search (requires Qdrant)                   |
-
-### Clinical Intelligence Endpoints
-
-| Method | Endpoint                            | Description                                             |
-| ------ | ----------------------------------- | ------------------------------------------------------- |
-| `POST` | `/lab/analyze-trend`                | Analyze longitudinal trends for a single test           |
-| `POST` | `/lab/analyze-all`                  | Analyze trends across all tests for a patient           |
-| `POST` | `/lab/classify-abnormality`         | Classify an observation against its reference range     |
-| `POST` | `/patient-state/build`              | Build a comprehensive patient state snapshot            |
-| `POST` | `/patient-state/emergency-check`    | Check text for emergency keywords                       |
-| `POST` | `/medication/safety-check`          | Drug interactions, allergy conflicts, duplicate therapy |
-| `POST` | `/medication/extract-from-text`     | Extract medications from free text                      |
-| `POST` | `/counterfactual/simulate`          | Simulate health outcomes under modified conditions      |
-| `GET`  | `/counterfactual/available-factors` | List modifiable factors and their diseases              |
-| `POST` | `/conflicts/detect`                 | Detect value discrepancies and cross-source conflicts   |
-| `POST` | `/review/build-evidence`            | Build evidence-linked response with provenance          |
-| `POST` | `/review/record-feedback`           | Submit model feedback (correct/incorrect/hallucination) |
-| `POST` | `/review/record-decision`           | Record clinician review decision                        |
-| `POST` | `/fhir/export`                      | Generate a FHIR R4 Bundle from patient data             |
-| `GET`  | `/fhir/capabilities`                | FHIR capability statement                               |
-
----
+The workflow preserves the server `.env`, certificate hierarchy, `/opt/medimind/models`, and named Docker volumes. It never rebuilds images on EC2 and never uses `docker compose down -v`. FastAPI is force-recreated after model synchronization so an updated TensorFlow model cannot remain cached in memory.
 
 ## Project Structure
 
-```
-medimind-ai/
-├── ai_service/                 # FastAPI AI service
-│   ├── app.py                  # FastAPI entrypoint
-│   ├── metrics.py              # Prometheus counters/histograms
-│   ├── cnn/                    # Chest X-ray pipeline
-│   ├── routers/                # API route handlers
-│   ├── services/               # Business logic layer
-│   ├── ml_models/              # Disease models (diabetes, heart, kidney, stroke)
-│   ├── agents/                 # Multi-agent system (triage override)
-│   ├── llm/                    # LLM provider abstraction
-│   └── rag/                    # RAG indexing + search
-├── backend/django/             # Django web application
-│   ├── medimind/               # Django project config + URL routing
-│   ├── clinical/               # Clinical observations, conflicts, snapshots
-│   ├── medication/             # Medications, safety alerts, allergies
-│   ├── reviews/                # Review decisions, model feedback, audit events
-│   ├── api/                    # DRF API views for clinical, medication, reviews
-│   ├── templates/              # Jinja2 templates
-│   └── static/css/             # Design system (single-hue green)
-├── tests/
-│   └── test_clinical_services.py # pytest tests for all services
-├── data/                       # Datasets (X-rays + tabular)
-├── ml/                         # CNN model artifacts
-├── run_local.py                # Local dev launcher
-└── requirements.txt            # All Python dependencies
+```text
+.
+├── .github/workflows/aws-deploy.yml     # Build, publish, and EC2 deployment workflow
+├── README.md
+└── medimind-ai/
+    ├── ai_service/                      # FastAPI app, routers, CNN registry, LLM and RAG
+    │   └── ml_models/                   # Tabular training code and lightweight metadata
+    ├── backend/django/                  # Django project, apps, templates, static assets
+    ├── data/                            # Local development/training data layout
+    ├── docker/                          # Django, FastAPI, and Nginx Dockerfiles
+    ├── ml/cnn/                          # Current CNN architecture, preprocessing, training
+    ├── monitoring/                      # Prometheus and Grafana configuration
+    ├── nginx/nginx.conf                 # Production HTTPS reverse proxy
+    ├── tests/                           # Cross-service and regression tests
+    ├── docker-compose.yml               # Production service topology and persistence
+    ├── run_local.py                     # SQLite-based local launcher
+    └── train_all_models.py              # Public-data tabular training helper
 ```
 
----
+## Local Development
 
-## Environment Variables
+### Prerequisites
 
-| Variable              | Required | Default              | Description                 |
-| --------------------- | -------- | -------------------- | --------------------------- |
-| `DJANGO_SECRET_KEY`   | Yes      | —                    | Django secret key           |
-| `DJANGO_DEBUG`        | No       | `True`               | Debug mode                  |
-| `GROQ_API_KEY`        | Yes\*    | —                    | Primary LLM (llama-3.3-70b) |
-| `OPENROUTER_API_KEY`  | No       | —                    | Fallback LLM                |
-| `MISTRAL_API_KEY`     | No       | —                    | Alternative LLM             |
-| `COHERE_API_KEY`      | No       | —                    | Embeddings (RAG)            |
-| `POSTGRES_DB`         | Docker   | `medimind_db`        | PostgreSQL database         |
-| `POSTGRES_USER`       | Docker   | `medimind_user`      | PostgreSQL user             |
-| `POSTGRES_PASSWORD`   | Docker   | —                    | PostgreSQL password         |
-| `QDRANT_HOST`         | Docker   | `qdrant`             | Vector DB host              |
-| `MLFLOW_TRACKING_URI` | Docker   | `http://mlflow:5000` | MLflow server               |
+- Git
+- Python 3.11
+- Docker Engine with Compose v2 for the full stack
+- Tesseract OCR if local report-image extraction is required
 
-_\* At least one LLM API key (Groq, OpenRouter, or Mistral) is required for the AI chat assistant and LLM-generated explanations. The CNN prediction and disease risk models work without any LLM key._
+### Clone and configure
 
----
+```bash
+git clone https://github.com/hammadAsher100/Medimind---Ai-powered-Healthcare-platform.git
+cd Medimind---Ai-powered-Healthcare-platform/medimind-ai
+cp .env.example .env
+```
+
+Replace every placeholder in `.env` with a local value. Never reuse or commit production secrets.
+
+### Lightweight local launcher
+
+The launcher uses SQLite and starts Django on port `8000` and FastAPI on port `8001`.
+
+```bash
+python -m venv .venv
+
+# Linux/macOS
+source .venv/bin/activate
+
+# Windows PowerShell
+# .\.venv\Scripts\Activate.ps1
+
+python -m pip install -r requirements.txt
+python run_local.py
+```
+
+Open <http://127.0.0.1:8000/login/>. Stop both development services with `Ctrl+C` in the launcher terminal.
+
+### Full Docker Compose stack
+
+The checked-in Compose file mirrors production HTTPS. Before starting Nginx locally, provide non-production certificates at the configured `/opt/medimind/certbot/conf/live/medimind-ai.online/` host path, or use a local-only Compose override to point the read-only certificate mount at your development certificates. The model mount similarly expects `/opt/medimind/models`.
+
+```bash
+docker compose config --quiet
+docker compose up -d --build
+docker compose ps
+```
+
+The gateway publishes ports `80` and `443`; internal services are intentionally not exposed directly. To stop the stack without deleting persistent data:
+
+```bash
+docker compose down
+```
+
+Do **not** add `-v` if you want PostgreSQL, Qdrant, Grafana, MLflow artifacts, static files, and uploaded media to survive.
+
+## Environment Configuration
+
+Use [`medimind-ai/.env.example`](medimind-ai/.env.example) as the source of variable names and safe examples.
+
+| Variables | Purpose |
+|---|---|
+| `DJANGO_SECRET_KEY`, `DJANGO_DEBUG`, `DJANGO_ALLOWED_HOSTS` | Django secret, runtime mode, and accepted hosts |
+| `SECURE_SSL_REDIRECT`, `SESSION_COOKIE_SECURE`, `CSRF_COOKIE_SECURE`, `SECURE_HSTS_SECONDS` | Production HTTPS and cookie policy |
+| `CSRF_TRUSTED_ORIGINS`, `CORS_ALLOWED_ORIGINS` | Explicit browser origins |
+| `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_HOST`, `POSTGRES_PORT` | PostgreSQL connection |
+| `FASTAPI_URL`, `DJANGO_INTERNAL_API_URL`, `DJANGO_SERVICE_TOKEN` | Internal service communication |
+| `MODEL_BASE_DIR`, `CNN_PNEUMONIA_MODEL_PATH` | External tabular/CNN artifact locations |
+| `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL` | LLM provider configuration |
+| `COHERE_API_KEY`, `QDRANT_HOST`, `QDRANT_PORT`, `QDRANT_COLLECTION` | Optional embeddings and vector search |
+| `MLFLOW_TRACKING_URI`, `MLFLOW_ARTIFACT_ROOT` | Optional experiment tracking |
+| `DISABLE_ML`, `DISABLE_CNN`, `DISABLE_QDRANT`, `DISABLE_MLFLOW` | Feature flags |
+| `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` | Internal Grafana authentication |
+
+The real `.env`, credentials, private keys, uploaded reports, and trained model files must remain untracked.
+
+## API Overview
+
+The browser normally uses authenticated Django routes. FastAPI is exposed through Nginx under `/ai/`; the prefix is stripped before the request reaches FastAPI.
+
+### Representative Django routes
+
+| Method | Route | Purpose |
+|---|---|---|
+| `POST` | `/api/auth/register/` | Create an account |
+| `POST` | `/api/auth/login/` | Authenticate |
+| `GET` | `/api/dashboard/` | Current user's dashboard data |
+| `POST` | `/api/predictions/predict/<disease>/` | Validated risk prediction via FastAPI |
+| `GET` | `/api/reports/` | List the authenticated user's reports |
+| `POST` | `/api/reports/upload/` | Upload and analyze a PDF/JPEG/PNG report |
+| `GET` | `/api/reports/<id>/` | Retrieve report metadata for its owner |
+| `GET` | `/api/health-score/` | Current user's health-score data |
+| `GET` | `/api/timeline/` | Current user's health timeline |
+
+### Representative FastAPI routes
+
+| Method | Production route | Purpose |
+|---|---|---|
+| `GET` | `/ai/health` | Service and CNN registry status |
+| `GET` | `/ai/metrics` | Prometheus-format service metrics |
+| `POST` | `/ai/predict/{disease}` | Diabetes, heart, kidney, or stroke inference |
+| `GET` | `/ai/cnn/models` | Loaded CNN model status |
+| `POST` | `/ai/cnn/predict/{model_id}` | Multipart X-ray inference and Grad-CAM result |
+| `POST` | `/ai/analyze-report` | Medical report extraction and analysis |
+| `POST` | `/ai/compare-reports` | Structured report comparison |
+| `POST` | `/ai/agents/chat` | Multi-agent assistant request |
+| `POST` | `/ai/lab/analyze-trend` | Longitudinal lab trend analysis |
+| `POST` | `/ai/medication/safety-check` | Medication interaction/allergy checks |
+| `POST` | `/ai/counterfactual/simulate` | Risk scenario simulation |
+| `POST` | `/ai/fhir/export` | Build a FHIR R4 bundle |
+
+Authentication, CSRF requirements, and payload schemas vary by endpoint. Inspect the Django URL modules, serializers, and FastAPI OpenAPI schema before integrating a client.
 
 ## Observability
 
-Prometheus metrics are exposed at `/metrics` on the FastAPI service. Clinical intelligence counters track:
+Prometheus scrapes metrics from both Django and FastAPI every 15 seconds. FastAPI instrumentation includes standard HTTP metrics plus application counters for predictions and clinical-intelligence operations. Grafana is provisioned with Prometheus as a data source, while MLflow uses PostgreSQL and a persistent artifact volume when enabled. These administrative services are kept off the public Nginx surface.
 
-| Metric                                      | Description                                       |
-| ------------------------------------------- | ------------------------------------------------- |
-| `medimind_lab_trend_analyses_total`         | Lab trend analyses performed                      |
-| `medimind_patient_state_builds_total`       | Patient state snapshots built (by priority)       |
-| `medimind_emergency_checks_total`           | Emergency triage checks (by result)               |
-| `medimind_medication_safety_checks_total`   | Medication safety checks (by alert presence)      |
-| `medimind_medication_alerts_total`          | Individual alerts (by type and severity)          |
-| `medimind_counterfactual_simulations_total` | Counterfactual simulations (by diseases affected) |
-| `medimind_conflict_detections_total`        | Conflict detection runs                           |
-| `medimind_trust_gate_assessments_total`     | CNN trust gate assessments (by status)            |
-| `medimind_review_decisions_total`           | Clinician review decisions                        |
-| `medimind_model_feedback_total`             | Model feedback events (by type and model)         |
-| `medimind_fhir_exports_total`               | FHIR bundle exports                               |
+## Security and Data Handling
 
-In Docker mode, Prometheus scrapes the FastAPI service and Grafana provides pre-configured dashboards at `http://localhost:13000`
+- TLS 1.2/1.3 termination and HTTP-to-HTTPS redirection at Nginx.
+- Forwarded HTTPS awareness in Django, secure cookies, configurable HSTS, trusted-origin parsing, CSRF protection, and Django authentication.
+- Environment-driven secrets; `.env`, certificate keys, model binaries, and uploaded reports are excluded from Git.
+- Only Nginx publishes host ports. Databases, observability tools, and application processes remain on the internal Docker network.
+- Authenticated report download flow; `/media/` is an internal Nginx location rather than a public directory listing.
+- A 50 MB Nginx request ceiling, a 20 MB application upload limit, server-side file validation, and persistent `django_media` storage for supported medical reports.
+- Model files are mounted read-only from the EC2 host, and CI authenticates to AWS through OIDC rather than long-lived AWS keys in the workflow.
 
----
+These controls improve the deployment posture but do not imply HIPAA, medical-device, or other regulatory compliance.
 
-## Safety
+## Screenshots
 
-**MediMind AI provides educational decision support only.** It does not diagnose, prescribe medication, or replace qualified clinical care. All AI-generated assessments include disclaimers reminding users that results must be reviewed by a qualified clinician.
+No current application screenshots are versioned in the repository. UI screenshots can be added here later from non-sensitive demonstration data; real patient information must never be captured for documentation.
 
-### Clinical Safety Requirements
+## Medical Disclaimer
 
-| Requirement                                              | Implementation                                                                                                                                                                                             |
-| -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **No nearest-neighbor fallback for medical predictions** | `_load_dataset_fallback()` in `registry.py` blocks kNN entirely — model is marked unavailable with a clear error message                                                                                   |
-| **No silent model replacement**                          | If the trained CNN model file is missing, the system raises `CNNModelUnavailable` with explicit guidance instead of substituting a proxy                                                                   |
-| **Deterministic vs. LLM separation**                     | Lab trend analysis, abnormality classification, counterfactual simulation, medication safety checks, and conflict detection are all deterministic (no LLM). LLM is used only for narrative interpretation. |
-| **Emergency triage override**                            | `check_emergency_keywords()` runs before any intent routing in the multi-agent system and cannot be bypassed                                                                                               |
-| **Synthetic data labeling**                              | All model outputs and patient state snapshots include `is_synthetic_data` flags                                                                                                                            |
-| **Disclaimers everywhere**                               | Every API response, page view, and export includes appropriate disclaimers about educational use                                                                                                           |
-| **Trust Gate**                                           | CNN predictions are gated through image quality, confidence, and dataset similarity checks — results are abstained when trust is insufficient                                                              |
-| **OOD detection**                                        | Non-chest-X-ray images are rejected before inference via grayscale ratio, aspect ratio, edge density, and histogram spread checks                                                                          |
-| **Clinician review loop**                                | All AI outputs can be accepted/modified/rejected by clinicians; feedback is tracked for quality monitoring                                                                                                 |
+> **MediMind AI is intended for educational, research, and decision-support purposes. Its predictions and AI-generated recommendations are not medical diagnoses and should not replace evaluation or advice from qualified healthcare professionals.**
 
-### What MediMind AI does NOT do
-
-- Make autonomous diagnoses or treatment decisions
-- Replace clinical judgment or professional medical advice
-- Guarantee accuracy of any prediction or assessment
-- Operate without clinical oversight (review workflow required for any clinical use)
+Model outputs can be wrong, incomplete, or unsuitable for a particular person. Do not use MediMind for emergencies, autonomous treatment decisions, prescribing, or delaying professional care.
