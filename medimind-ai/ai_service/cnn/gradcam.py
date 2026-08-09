@@ -94,14 +94,23 @@ def generate_gradcam(
                 logger.warning("Grad-CAM: inner model build failed: %s", exc)
                 return None
 
-            # Collect the top layers that come *after* the sub-model
+            # Reproduce preprocessing layers before the nested backbone, then
+            # collect classification layers that come after it. This matters
+            # for models that embed MobileNetV2 normalization.
+            preprocessing_layers = _get_preprocessing_layers(model, sub_model)
             top_layers = _get_top_layers(model, sub_model)
 
             input_tensor = tf.constant(input_batch, dtype=tf.float32)
 
             with tf.GradientTape() as tape:
+                backbone_input = input_tensor
+                for layer in preprocessing_layers:
+                    try:
+                        backbone_input = layer(backbone_input, training=False)
+                    except TypeError:
+                        backbone_input = layer(backbone_input)
                 conv_outputs, base_features = inner_grad_model(
-                    input_tensor, training=False
+                    backbone_input, training=False
                 )
                 tape.watch(conv_outputs)
 
@@ -260,6 +269,17 @@ def _get_top_layers(model: Any, sub_model: Any) -> list[Any]:
         if found:
             top_layers.append(layer)
     return top_layers
+
+
+def _get_preprocessing_layers(model: Any, sub_model: Any) -> list[Any]:
+    """Return callable layers before a nested backbone, excluding InputLayer."""
+    preprocessing_layers: list[Any] = []
+    for layer in model.layers:
+        if layer is sub_model:
+            break
+        if layer.__class__.__name__ != "InputLayer":
+            preprocessing_layers.append(layer)
+    return preprocessing_layers
 
 
 def _last_conv2d(container: Any) -> Any | None:

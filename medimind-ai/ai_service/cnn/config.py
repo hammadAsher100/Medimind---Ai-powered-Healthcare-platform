@@ -38,9 +38,6 @@ def _pneumonia_model_path() -> Path:
         return Path(env_path).expanduser().resolve()
 
     candidates = [
-        PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia_v4.h5",  # Try v4 first
-        PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia_v3.h5",
-        PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia_v2.h5",
         PROJECT_ROOT / "ml" / "registry" / "cnn_pneumonia.h5",
         PROJECT_ROOT / "ml" / "cnn" / "cnn_pneumonia.h5",
         PROJECT_ROOT / "ai_service" / "ml_models" / "pneumonia" / "cnn_pneumonia.h5",
@@ -51,18 +48,33 @@ def _pneumonia_model_path() -> Path:
     return _first_existing_model(candidates)
 
 
+def _artifact_threshold(model_path: Path, default: float = 0.5) -> float:
+    """Read the validated threshold embedded in a retrained HDF5 artifact."""
+    if not model_path.is_file() or model_path.suffix.lower() != ".h5":
+        return default
+    try:
+        import h5py
+
+        with h5py.File(model_path, "r") as model_file:
+            threshold = float(model_file.attrs.get("medimind_classification_threshold", default))
+        return threshold if 0.0 < threshold < 1.0 else default
+    except Exception:
+        return default
+
+
 def get_cnn_model_configs() -> dict[str, CNNModelConfig]:
+    pneumonia_model_path = _pneumonia_model_path()
     pneumonia = CNNModelConfig(
         model_id="pneumonia_xray",
         display_name="Chest X-ray Pneumonia Detection",
         disease="Pneumonia",
         modality="chest_xray",
-        model_path=_pneumonia_model_path(),
+        model_path=pneumonia_model_path,
         labels={0: "NORMAL", 1: "PNEUMONIA"},
         input_size=(224, 224),
         color_mode="RGB",
         normalization="rescale_1_255",
-        threshold=0.5,
+        threshold=_artifact_threshold(pneumonia_model_path),
         dataset_dirs=(
             PROJECT_ROOT / "data" / "raw" / "xray" / "chest_xray",  # Primary: nested dataset
             PROJECT_ROOT / "data" / "raw" / "xray",                 # Fallback: flat structure
@@ -75,4 +87,3 @@ def get_cnn_model_configs() -> dict[str, CNNModelConfig]:
         ),
     )
     return {pneumonia.model_id: pneumonia}
-

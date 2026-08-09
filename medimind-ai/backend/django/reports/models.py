@@ -13,6 +13,8 @@ class MedicalReport(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="medical_reports")
     file = models.FileField(upload_to="reports/%Y/%m/%d/")
     report_type = models.CharField(max_length=16, choices=REPORT_TYPES, default="other")
+    report_date = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     extracted_text = models.TextField(blank=True)
     analysis_result = models.JSONField(default=dict, blank=True)

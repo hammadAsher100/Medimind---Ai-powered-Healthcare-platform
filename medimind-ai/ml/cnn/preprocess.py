@@ -111,10 +111,10 @@ def preprocess_single_image(image_bytes: bytes) -> np.ndarray:
     -------
     np.ndarray of shape (1, 224, 224, 3) normalised to [0, 1].
     """
-    from PIL import Image
-    import io
+    import tensorflow as tf
 
-    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    img = img.resize(IMAGE_SIZE)
-    arr = np.array(img, dtype=np.float32) / 255.0
-    return np.expand_dims(arr, axis=0)
+    image = tf.io.decode_image(image_bytes, channels=3, expand_animations=False)
+    image.set_shape((None, None, 3))
+    image = tf.image.convert_image_dtype(image, tf.float32)
+    image = tf.image.resize(image, IMAGE_SIZE, antialias=True)
+    return np.expand_dims(image.numpy(), axis=0)

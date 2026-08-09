@@ -214,14 +214,28 @@ def preprocess_image(
                 "mode": image.mode,
                 "format": image.format,
             }
-            converted = image.convert(config.color_mode)
-            resized = converted.resize(config.input_size)
-            array = np.asarray(resized, dtype=np.float32)
-    except UnidentifiedImageError as exc:
+        if config.color_mode != "RGB":
+            raise ImageValidationError(f"Unsupported CNN color mode: {config.color_mode}")
+
+        # Keep this byte decode and antialiased bilinear resize identical to
+        # ml/cnn/train.py. The saved model then applies MobileNetV2's [-1, 1]
+        # normalization internally.
+        import tensorflow as tf
+
+        decoded = tf.io.decode_image(image_bytes, channels=3, expand_animations=False)
+        decoded.set_shape((None, None, 3))
+        array = tf.image.convert_image_dtype(decoded, tf.float32)
+        array = tf.image.resize(array, config.input_size, antialias=True).numpy()
+    except ImageValidationError:
+        raise
+    except (UnidentifiedImageError, OSError) as exc:
+        raise ImageValidationError("Uploaded file could not be read as an image.") from exc
+    except Exception as exc:
         raise ImageValidationError("Uploaded file could not be read as an image.") from exc
 
     if config.normalization == "rescale_1_255":
-        array = array / 255.0
+        # tf.image.convert_image_dtype already scales uint8 pixels to [0, 1].
+        array = np.asarray(array, dtype=np.float32)
     else:
         raise ImageValidationError(f"Unsupported normalization pipeline: {config.normalization}")
 
@@ -238,4 +252,3 @@ def preprocess_image(
         },
     }
     return PreprocessedImage(batch=batch, metadata=metadata)
-

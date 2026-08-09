@@ -10,6 +10,8 @@ class MedicalReportSerializer(serializers.ModelSerializer):
             "id",
             "file",
             "report_type",
+            "report_date",
+            "notes",
             "uploaded_at",
             "extracted_text",
             "analysis_result",
