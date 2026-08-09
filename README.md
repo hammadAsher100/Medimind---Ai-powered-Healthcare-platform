@@ -374,5 +374,3 @@ In Docker mode, Prometheus scrapes the FastAPI service and Grafana provides pre-
 - Replace clinical judgment or professional medical advice
 - Guarantee accuracy of any prediction or assessment
 - Operate without clinical oversight (review workflow required for any clinical use)
-
-<!-- Trigger CI/CD -->
