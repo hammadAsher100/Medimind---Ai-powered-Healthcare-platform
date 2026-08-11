@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 concurrency:
@@ -81,6 +84,7 @@ jobs:
 
   build-and-push:
     name: Build and Push Images
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     needs: validate
     environment: production
