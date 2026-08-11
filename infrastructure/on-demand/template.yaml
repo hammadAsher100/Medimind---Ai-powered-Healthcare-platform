@@ -31,11 +31,6 @@ Parameters:
     Type: Number
     Default: 900
     MinValue: 300
-  OriginToken:
-    Type: String
-    NoEcho: true
-    MinLength: 32
-    Description: Random token added by CloudFront and verified by the control Lambda.
   CreateElasticIp:
     Type: String
     AllowedValues: ['true', 'false']
@@ -109,15 +104,14 @@ Resources:
     Type: AWS::Serverless::Function
     Properties:
       FunctionName: medimind-wake-status
-      CodeUri: functions/control/
-      Handler: app.handler
+      CodeUri: ./
+      Handler: functions.control.app.handler
       MemorySize: 256
       Timeout: 15
       Environment:
         Variables:
           APP_URL: !Ref AppUrl
           HEALTH_CHECK_URL: !Ref HealthCheckUrl
-          ORIGIN_TOKEN: !Ref OriginToken
           STARTUP_TIMEOUT_SECONDS: !Ref StartupTimeoutSeconds
       Events:
         Wake:
@@ -131,6 +125,24 @@ Resources:
           Properties:
             ApiId: !Ref WakeApi
             Path: /control/status
+            Method: GET
+        StartupPage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /
+            Method: GET
+        StartupStyles:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /styles.css
+            Method: GET
+        StartupScript:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /app.js
             Method: GET
       Policies:
         - Statement:
@@ -274,6 +286,8 @@ Resources:
           Value: MediMind
 
 Outputs:
+  WakeApiId:
+    Value: !Ref WakeApi
   ActivityTableName:
     Value: !Ref ActivityTable
   WakeApiEndpoint:

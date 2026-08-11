@@ -20,7 +20,6 @@ def load_module():
             "ACTIVITY_TABLE_NAME": "activity",
             "APP_URL": "https://app.medimind-ai.online",
             "HEALTH_CHECK_URL": "https://app.medimind-ai.online/readyz",
-            "ORIGIN_TOKEN": "x" * 32,
         }
     )
     spec = importlib.util.spec_from_file_location("wake_control_test_module", FUNCTION)
@@ -49,7 +48,7 @@ class WakeControllerTests(unittest.TestCase):
     def setUp(self):
         self.module = load_module()
         self.event = {
-            "headers": {"x-medimind-origin-token": "x" * 32},
+            "headers": {},
             "requestContext": {
                 "requestId": "request-1",
                 "http": {"method": "POST", "path": "/control/wake", "sourceIp": "203.0.113.10"},
@@ -63,10 +62,11 @@ class WakeControllerTests(unittest.TestCase):
 
         return json.loads(response["body"])
 
-    def test_rejects_requests_without_cloudfront_token(self):
-        self.event["headers"] = {}
+    def test_serves_startup_page(self):
+        self.event["requestContext"]["http"].update({"method": "GET", "path": "/"})
         response = self.module.handler(self.event, None)
-        self.assertEqual(response["statusCode"], 403)
+        self.assertEqual(response["statusCode"], 200)
+        self.assertIn("MediMind AI is starting", response["body"])
 
     def test_stopped_instance_is_started(self):
         self.module._instance_state = MagicMock(return_value=("stopped", None))
