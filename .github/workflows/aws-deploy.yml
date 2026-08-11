@@ -54,17 +54,30 @@ jobs:
         run: |
           set -euo pipefail
           CERT_ROOT=$(mktemp -d)
-          mkdir -p "$CERT_ROOT/live/medimind-ai.online"
+          mkdir -p "$CERT_ROOT/live/app.medimind-ai.online"
           openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
             -subj "/CN=medimind-ai.online" \
-            -keyout "$CERT_ROOT/live/medimind-ai.online/privkey.pem" \
-            -out "$CERT_ROOT/live/medimind-ai.online/fullchain.pem"
+            -keyout "$CERT_ROOT/live/app.medimind-ai.online/privkey.pem" \
+            -out "$CERT_ROOT/live/app.medimind-ai.online/fullchain.pem"
           docker run --rm \
             --add-host django:127.0.0.1 \
             --add-host fastapi:127.0.0.1 \
             -v "$PWD/nginx/nginx.conf:/etc/nginx/nginx.conf:ro" \
             -v "$CERT_ROOT:/etc/letsencrypt:ro" \
             nginx:1.25-alpine nginx -t
+
+      - name: Test on-demand control plane
+        shell: bash
+        run: python -m unittest discover -s infrastructure/on-demand/tests -v
+
+      - name: Validate on-demand CloudFormation templates
+        shell: bash
+        run: |
+          python -m pip install --disable-pip-version-check 'cfn-lint>=1.39,<2'
+          cfn-lint \
+            infrastructure/on-demand/dns-template.yaml \
+            infrastructure/on-demand/template.yaml \
+            infrastructure/on-demand/edge-template.yaml
 
   build-and-push:
     name: Build and Push Images
@@ -144,6 +157,9 @@ jobs:
           test -n "${{ vars.EC2_INSTANCE_ID }}"
           test -n "${{ vars.S3_BUCKET }}"
           test -n "${{ vars.S3_PREFIX }}"
+          if [ "${{ vars.ON_DEMAND_DEPLOYMENT_ENABLED }}" = "true" ]; then
+            test -n "${{ vars.ACTIVITY_TABLE_NAME }}"
+          fi
 
       - name: Configure AWS credentials through OIDC
         uses: aws-actions/configure-aws-credentials@v5
@@ -156,20 +172,91 @@ jobs:
         shell: bash
         run: aws sts get-caller-identity
 
-      - name: Verify EC2 Systems Manager connection
+      - name: Prepare EC2 power state and deployment lease
+        id: power
         shell: bash
         env:
           AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
           EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          ON_DEMAND_ENABLED: ${{ vars.ON_DEMAND_DEPLOYMENT_ENABLED }}
+          ACTIVITY_TABLE_NAME: ${{ vars.ACTIVITY_TABLE_NAME }}
         run: |
           set -euo pipefail
-          STATUS=$(aws ssm describe-instance-information \
+
+          DEPLOYMENT_STARTED_AT=$(date +%s)
+          echo "deployment_started_at=$DEPLOYMENT_STARTED_AT" >> "$GITHUB_OUTPUT"
+
+          # Preserve the existing deployment behavior until the on-demand stack
+          # and its least-privilege EC2 permissions have been enabled.
+          if [ "$ON_DEMAND_ENABLED" != "true" ]; then
+            echo "initial_state=running" >> "$GITHUB_OUTPUT"
+            echo "On-demand power management is disabled; expecting the existing EC2 host to be running"
+            for attempt in $(seq 1 90); do
+              STATUS=$(aws ssm describe-instance-information \
+                --region "$AWS_DEPLOY_REGION" \
+                --filters "Key=InstanceIds,Values=$EC2_INSTANCE_ID" \
+                --query "InstanceInformationList[0].PingStatus" \
+                --output text 2>/dev/null || echo Offline)
+              echo "Systems Manager attempt $attempt: $STATUS"
+              [ "$STATUS" = "Online" ] && exit 0
+              sleep 10
+            done
+            echo "Systems Manager did not become available on the existing EC2 host"
+            exit 1
+          fi
+
+          INITIAL_STATE=$(aws ec2 describe-instances \
             --region "$AWS_DEPLOY_REGION" \
-            --filters "Key=InstanceIds,Values=$EC2_INSTANCE_ID" \
-            --query "InstanceInformationList[0].PingStatus" \
+            --instance-ids "$EC2_INSTANCE_ID" \
+            --query 'Reservations[0].Instances[0].State.Name' \
             --output text)
-          echo "Systems Manager status: $STATUS"
-          test "$STATUS" = "Online"
+          echo "initial_state=$INITIAL_STATE" >> "$GITHUB_OUTPUT"
+          echo "Initial EC2 state: $INITIAL_STATE"
+
+          case "$INITIAL_STATE" in
+            stopped)
+              aws ec2 start-instances --region "$AWS_DEPLOY_REGION" --instance-ids "$EC2_INSTANCE_ID" >/dev/null
+              ;;
+            stopping)
+              aws ec2 wait instance-stopped --region "$AWS_DEPLOY_REGION" --instance-ids "$EC2_INSTANCE_ID"
+              aws ec2 start-instances --region "$AWS_DEPLOY_REGION" --instance-ids "$EC2_INSTANCE_ID" >/dev/null
+              ;;
+            pending|running)
+              ;;
+            shutting-down|terminated)
+              echo "The configured EC2 instance cannot be deployed in state $INITIAL_STATE"
+              exit 1
+              ;;
+            *)
+              echo "Unexpected EC2 state: $INITIAL_STATE"
+              exit 1
+              ;;
+          esac
+
+          aws ec2 wait instance-running --region "$AWS_DEPLOY_REGION" --instance-ids "$EC2_INSTANCE_ID"
+
+          if [ "$ON_DEMAND_ENABLED" = "true" ]; then
+            DEPLOYMENT_UNTIL=$((DEPLOYMENT_STARTED_AT + 3600))
+            aws dynamodb update-item \
+              --region "$AWS_DEPLOY_REGION" \
+              --table-name "$ACTIVITY_TABLE_NAME" \
+              --key "{\"pk\":{\"S\":\"INSTANCE#$EC2_INSTANCE_ID\"},\"sk\":{\"S\":\"STATE\"}}" \
+              --update-expression 'SET deployment_until = :until, deployment_started_at = :started, updated_at = :started' \
+              --expression-attribute-values "{\":until\":{\"N\":\"$DEPLOYMENT_UNTIL\"},\":started\":{\"N\":\"$DEPLOYMENT_STARTED_AT\"}}" >/dev/null
+          fi
+
+          for attempt in $(seq 1 90); do
+            STATUS=$(aws ssm describe-instance-information \
+              --region "$AWS_DEPLOY_REGION" \
+              --filters "Key=InstanceIds,Values=$EC2_INSTANCE_ID" \
+              --query "InstanceInformationList[0].PingStatus" \
+              --output text 2>/dev/null || echo Offline)
+            echo "Systems Manager attempt $attempt: $STATUS"
+            [ "$STATUS" = "Online" ] && exit 0
+            sleep 10
+          done
+          echo "Systems Manager did not become available after EC2 startup"
+          exit 1
 
       - name: Send deployment command
         id: deploy
@@ -180,6 +267,8 @@ jobs:
           S3_BUCKET: ${{ vars.S3_BUCKET }}
           S3_PREFIX: ${{ vars.S3_PREFIX }}
           DEPLOYED_COMMIT: ${{ github.sha }}
+          ON_DEMAND_ENABLED: ${{ vars.ON_DEMAND_DEPLOYMENT_ENABLED }}
+          ACTIVITY_TABLE_NAME: ${{ vars.ACTIVITY_TABLE_NAME }}
         run: |
           set -euo pipefail
 
@@ -194,8 +283,8 @@ jobs:
           MODEL_DIR="/opt/medimind/models"
           CERTBOT_CONF="/opt/medimind/certbot/conf"
           CERTBOT_WEBROOT="/opt/medimind/certbot/www"
-          CERT_FULLCHAIN="$CERTBOT_CONF/live/medimind-ai.online/fullchain.pem"
-          CERT_PRIVATE_KEY="$CERTBOT_CONF/live/medimind-ai.online/privkey.pem"
+          CERT_FULLCHAIN="$CERTBOT_CONF/live/app.medimind-ai.online/fullchain.pem"
+          CERT_PRIVATE_KEY="$CERTBOT_CONF/live/app.medimind-ai.online/privkey.pem"
           ENV_BACKUP="/tmp/medimind-production.env"
 
           mkdir -p "$MODEL_DIR" "$CERTBOT_WEBROOT/.well-known/acme-challenge"
@@ -222,6 +311,24 @@ jobs:
           if [ -f "$ENV_BACKUP" ]; then
             cp "$ENV_BACKUP" "$COMPOSE_DIR/.env"
             chmod 600 "$COMPOSE_DIR/.env"
+          fi
+
+          upsert_env() {
+            key="$1"
+            value="$2"
+            if grep -q "^${key}=" "$COMPOSE_DIR/.env"; then
+              sed -i "s|^${key}=.*|${key}=${value}|" "$COMPOSE_DIR/.env"
+            else
+              printf '%s=%s\n' "$key" "$value" >> "$COMPOSE_DIR/.env"
+            fi
+          }
+
+          if [ "__ON_DEMAND_ENABLED__" = "true" ]; then
+            upsert_env ACTIVITY_TRACKING_ENABLED True
+            upsert_env ACTIVITY_TABLE_NAME "__ACTIVITY_TABLE_NAME__"
+            upsert_env EC2_INSTANCE_ID "__EC2_INSTANCE_ID__"
+            upsert_env AWS_REGION "__AWS_REGION__"
+            upsert_env CERTBOT_CERT_NAME app.medimind-ai.online
           fi
 
           test -f "$COMPOSE_DIR/.env"
@@ -275,6 +382,7 @@ jobs:
           cd "$COMPOSE_DIR"
           chmod 600 .env
           docker compose config --quiet
+          bash ops/install-boot-services.sh
 
           deployment_failure() {
             failure_status=$?
@@ -386,10 +494,11 @@ jobs:
           assert settings.SECURE_HSTS_SECONDS >= 300
           assert settings.SECURE_PROXY_SSL_HEADER == ("HTTP_X_FORWARDED_PROTO", "https")
 
-          required_hosts = {"medimind-ai.online", "www.medimind-ai.online"}
+          required_hosts = {"medimind-ai.online", "www.medimind-ai.online", "app.medimind-ai.online"}
           required_origins = {
               "https://medimind-ai.online",
               "https://www.medimind-ai.online",
+              "https://app.medimind-ai.online",
           }
           assert required_hosts.issubset(set(settings.ALLOWED_HOSTS))
           assert required_origins.issubset(set(settings.CSRF_TRUSTED_ORIGINS))
@@ -398,6 +507,27 @@ jobs:
 
           echo "Checking model mount"
           docker compose exec -T fastapi sh -lc 'test -r "$CNN_PNEUMONIA_MODEL_PATH"'
+
+          if [ "__ON_DEMAND_ENABLED__" = "true" ]; then
+            echo "Checking container access to the activity table through the EC2 role"
+            docker compose exec -T django python - <<'PY'
+          import os
+
+          import boto3
+
+          client = boto3.client("dynamodb", region_name=os.environ["AWS_REGION"])
+          response = client.get_item(
+              TableName=os.environ["ACTIVITY_TABLE_NAME"],
+              Key={
+                  "pk": {"S": f"INSTANCE#{os.environ['EC2_INSTANCE_ID']}"},
+                  "sk": {"S": "STATE"},
+              },
+              ConsistentRead=True,
+          )
+          assert response["ResponseMetadata"]["HTTPStatusCode"] == 200
+          print("Activity-table access passed")
+          PY
+          fi
 
           for disease in diabetes heart kidney stroke; do
             docker compose exec -T fastapi test -r "/opt/medimind/models/$disease/model.joblib"
@@ -482,7 +612,7 @@ jobs:
               request = urllib.request.Request(
                   f"http://127.0.0.1:8001/predict/{disease}",
                   data=json.dumps(payload).encode(),
-                  headers={"Content-Type": "application/json"},
+                  headers={"Content-Type": "application/json", "X-MediMind-Internal-Check": "deployment"},
                   method="POST"
               )
 
@@ -546,11 +676,11 @@ jobs:
           echo "Verifying HTTP redirects to HTTPS"
           REDIRECT_HEADERS=$(curl --silent --show-error --dump-header - --output /dev/null \
             --max-time 20 \
-            --resolve medimind-ai.online:80:127.0.0.1 \
-            http://medimind-ai.online/)
+            --resolve app.medimind-ai.online:80:127.0.0.1 \
+            http://app.medimind-ai.online/)
           echo "$REDIRECT_HEADERS"
           echo "$REDIRECT_HEADERS" | grep -Eq '^HTTP/[0-9.]+ 301'
-          echo "$REDIRECT_HEADERS" | grep -Eiq '^location: https://medimind-ai\.online/'
+          echo "$REDIRECT_HEADERS" | grep -Eiq '^location: https://app\.medimind-ai\.online/'
 
           echo "Verifying production HTTPS"
           HTTPS_STATUS="000"
@@ -558,8 +688,8 @@ jobs:
             HTTPS_STATUS=$(curl --silent --show-error --output /dev/null \
               --write-out "%{http_code}" \
               --max-time 30 \
-              --resolve medimind-ai.online:443:127.0.0.1 \
-              https://medimind-ai.online/ || echo "000")
+              --resolve app.medimind-ai.online:443:127.0.0.1 \
+              https://app.medimind-ai.online/readyz || echo "000")
             echo "HTTPS attempt $attempt: $HTTPS_STATUS"
 
             case "$HTTPS_STATUS" in
@@ -575,7 +705,7 @@ jobs:
           PUBLIC_HTTPS_STATUS=$(curl --silent --show-error --output /dev/null \
             --write-out "%{http_code}" \
             --max-time 30 \
-            https://medimind-ai.online/)
+            https://app.medimind-ai.online/readyz)
           echo "Public HTTPS status: $PUBLIC_HTTPS_STATUS"
           case "$PUBLIC_HTTPS_STATUS" in
             200|301|302) ;;
@@ -630,6 +760,9 @@ jobs:
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__S3_PREFIX__/${NORMALIZED_S3_PREFIX}}"
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__DEPLOYED_COMMIT__/${DEPLOYED_COMMIT}}"
           DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__DOCKERHUB_NAMESPACE__/${DOCKERHUB_NAMESPACE}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__ON_DEMAND_ENABLED__/${ON_DEMAND_ENABLED}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__ACTIVITY_TABLE_NAME__/${ACTIVITY_TABLE_NAME}}"
+          DEPLOY_SCRIPT="${DEPLOY_SCRIPT//__EC2_INSTANCE_ID__/${EC2_INSTANCE_ID}}"
 
           PARAMETERS=$(jq -n --arg command "$DEPLOY_SCRIPT" '{commands: [$command]}')
 
@@ -647,6 +780,7 @@ jobs:
           echo "Deployment command ID: $COMMAND_ID"
 
       - name: Wait for deployment result
+        id: deployment_result
         shell: bash
         env:
           AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
@@ -703,3 +837,56 @@ jobs:
 
           echo "Deployment did not finish within the expected time"
           exit 1
+
+      - name: Release deployment lease and restore prior power state
+        if: always()
+        shell: bash
+        env:
+          AWS_DEPLOY_REGION: ${{ vars.AWS_REGION }}
+          EC2_INSTANCE_ID: ${{ vars.EC2_INSTANCE_ID }}
+          ON_DEMAND_ENABLED: ${{ vars.ON_DEMAND_DEPLOYMENT_ENABLED }}
+          ACTIVITY_TABLE_NAME: ${{ vars.ACTIVITY_TABLE_NAME }}
+          INITIAL_STATE: ${{ steps.power.outputs.initial_state }}
+          DEPLOYMENT_STARTED_AT: ${{ steps.power.outputs.deployment_started_at }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "$INITIAL_STATE" ]; then
+            echo "Power preparation did not complete; no state restoration is safe"
+            exit 0
+          fi
+
+          RESTORE_STOPPED=false
+          if [ "$INITIAL_STATE" = "stopped" ]; then
+            RESTORE_STOPPED=true
+          fi
+
+          if [ "$ON_DEMAND_ENABLED" = "true" ] && [ -n "$ACTIVITY_TABLE_NAME" ]; then
+            ITEM=$(aws dynamodb get-item \
+              --region "$AWS_DEPLOY_REGION" \
+              --table-name "$ACTIVITY_TABLE_NAME" \
+              --key "{\"pk\":{\"S\":\"INSTANCE#$EC2_INSTANCE_ID\"},\"sk\":{\"S\":\"STATE\"}}" \
+              --consistent-read \
+              --query Item \
+              --output json)
+
+            LAST_ACTIVITY=$(jq -r '.last_activity_at.N // "0"' <<<"$ITEM")
+            WAKE_REQUESTED=$(jq -r '.wake_requested_at.N // "0"' <<<"$ITEM")
+            if [ "$LAST_ACTIVITY" -gt "$DEPLOYMENT_STARTED_AT" ] || [ "$WAKE_REQUESTED" -gt "$DEPLOYMENT_STARTED_AT" ]; then
+              echo "Visitor activity occurred during deployment; keeping EC2 running"
+              RESTORE_STOPPED=false
+            fi
+
+            aws dynamodb update-item \
+              --region "$AWS_DEPLOY_REGION" \
+              --table-name "$ACTIVITY_TABLE_NAME" \
+              --key "{\"pk\":{\"S\":\"INSTANCE#$EC2_INSTANCE_ID\"},\"sk\":{\"S\":\"STATE\"}}" \
+              --update-expression 'REMOVE deployment_until, deployment_started_at' >/dev/null
+          fi
+
+          if [ "$RESTORE_STOPPED" = "true" ]; then
+            echo "Restoring the EC2 instance to its pre-deployment stopped state"
+            aws ec2 stop-instances --region "$AWS_DEPLOY_REGION" --instance-ids "$EC2_INSTANCE_ID" >/dev/null
+          else
+            echo "Leaving EC2 running"
+          fi

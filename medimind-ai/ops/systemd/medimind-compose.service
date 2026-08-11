@@ -1,0 +1,22 @@
+[Unit]
+Description=MediMind Docker Compose application
+Requires=docker.service
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/medimind/app/medimind-ai
+Environment=COMPOSE_HTTP_TIMEOUT=360
+ExecStartPre=/usr/bin/test -s /opt/medimind/app/medimind-ai/.env
+ExecStartPre=/usr/bin/test -s /opt/medimind/models/pneumonia/cnn_pneumonia.h5
+ExecStartPre=/usr/bin/test -s /opt/medimind/certbot/conf/live/app.medimind-ai.online/fullchain.pem
+ExecStartPre=/usr/bin/docker compose config --quiet
+ExecStart=/usr/bin/docker compose up -d --no-build --remove-orphans
+ExecStop=/usr/bin/docker compose stop --timeout 300
+TimeoutStartSec=600
+TimeoutStopSec=360
+
+[Install]
+WantedBy=multi-user.target
