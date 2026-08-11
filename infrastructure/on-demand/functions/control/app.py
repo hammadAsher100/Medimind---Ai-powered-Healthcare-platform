@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import hmac
 import json
 import logging
 import os
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 import boto3
 from botocore.config import Config
@@ -25,7 +25,6 @@ INSTANCE_ID = os.environ["EC2_INSTANCE_ID"]
 TABLE_NAME = os.environ["ACTIVITY_TABLE_NAME"]
 APP_URL = os.environ["APP_URL"].rstrip("/")
 HEALTH_CHECK_URL = os.environ["HEALTH_CHECK_URL"]
-ORIGIN_TOKEN = os.environ["ORIGIN_TOKEN"]
 MINIMUM_RUNTIME_SECONDS = int(os.environ.get("MINIMUM_RUNTIME_MINUTES", "15")) * 60
 STARTUP_TIMEOUT_SECONDS = int(os.environ.get("STARTUP_TIMEOUT_SECONDS", "900"))
 STATE_KEY = {"pk": {"S": f"INSTANCE#{INSTANCE_ID}"}, "sk": {"S": "STATE"}}
@@ -47,10 +46,24 @@ def _response(status_code: int, payload: dict) -> dict:
     }
 
 
-def _authorized(event: dict) -> bool:
-    headers = {str(k).lower(): str(v) for k, v in (event.get("headers") or {}).items()}
-    supplied = headers.get("x-medimind-origin-token", "")
-    return bool(supplied) and hmac.compare_digest(supplied, ORIGIN_TOKEN)
+def _asset_response(filename: str, content_type: str) -> dict:
+    asset_path = Path(__file__).parents[2] / "site" / filename
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Content-Type": content_type,
+            "Cache-Control": "public, max-age=300",
+            "X-Content-Type-Options": "nosniff",
+            "X-Frame-Options": "DENY",
+            "Referrer-Policy": "same-origin",
+            "Content-Security-Policy": (
+                "default-src 'self'; connect-src 'self'; img-src 'self' data:; "
+                "style-src 'self'; script-src 'self'; object-src 'none'; "
+                "base-uri 'self'; frame-ancestors 'none'"
+            ),
+        },
+        "body": asset_path.read_text(encoding="utf-8"),
+    }
 
 
 def _request_context(event: dict) -> dict:
@@ -161,9 +174,16 @@ def handler(event, _context):
         if scheduled_wake
         else _request_context(event)
     )
-    if not scheduled_wake and not _authorized(event):
-        _log("control_request_rejected", **context)
-        return _response(403, {"status": "error", "message": "Request could not be verified."})
+
+    if not scheduled_wake and context["method"].upper() == "GET":
+        static_routes = {
+            "/": ("index.html", "text/html; charset=utf-8"),
+            "/styles.css": ("styles.css", "text/css; charset=utf-8"),
+            "/app.js": ("app.js", "application/javascript; charset=utf-8"),
+        }
+        asset = static_routes.get(context["path"])
+        if asset:
+            return _asset_response(*asset)
 
     now = int(time.time())
     method = context["method"].upper()

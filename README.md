@@ -140,9 +140,8 @@ Optional retrieval-augmented flows use **Cohere** embeddings and **Qdrant**. The
 
 ```mermaid
 flowchart TB
-    User["User browser"] -->|root / www| CloudFront["CloudFront entry layer"]
-    CloudFront --> Startup["Private S3 startup page"]
-    Startup -->|wake / status| Wake["API Gateway + Lambda"]
+    User["User browser"] -->|root / www| Startup["API Gateway startup page"]
+    Startup -->|wake / status| Wake["Wake/status Lambda"]
     Wake -->|idempotent start| EC2["On-demand EC2"]
     User -->|app subdomain| Nginx["Nginx reverse proxy on EC2"]
     Scheduler["EventBridge idle checks"] --> Shutdown["Lease-aware shutdown Lambda"]
@@ -168,7 +167,7 @@ flowchart TB
     MLflow["MLflow"] -. feature flagged .-> PostgreSQL
 ```
 
-The always-on entry layer is serverless and displays a branded startup page while EC2 boots. The application stays on `app.medimind-ai.online`, directly behind Nginx, so long CPU-bound inference requests retain the existing 300-second timeout instead of being constrained by a CDN origin timeout. All application services run in Docker on EC2; only Nginx publishes host ports. PostgreSQL, Qdrant, MLflow, Prometheus, Grafana, Django, and FastAPI remain on the Compose network.
+The always-on API Gateway entry layer displays a branded startup page from Lambda while EC2 boots. The application stays on `app.medimind-ai.online`, directly behind Nginx, so long CPU-bound inference requests retain the existing 300-second timeout. All application services run in Docker on EC2; only Nginx publishes host ports. PostgreSQL, Qdrant, MLflow, Prometheus, Grafana, Django, and FastAPI remain on the Compose network.
 
 ## Technology Stack
 
@@ -182,12 +181,12 @@ The always-on entry layer is serverless and displays a branded startup page whil
 | LLM / retrieval | Groq, OpenRouter HTTP integration, Cohere embeddings, Qdrant |
 | Data | PostgreSQL in production, SQLite for the local launcher, persistent Docker media volume |
 | MLOps / monitoring | MLflow, Prometheus, Grafana |
-| Infrastructure | Docker Compose, Nginx, Let's Encrypt TLS, on-demand AWS EC2, CloudFront, S3, API Gateway, Lambda, DynamoDB, EventBridge, Route 53 |
+| Infrastructure | Docker Compose, Nginx, Let's Encrypt TLS, on-demand AWS EC2, API Gateway, Lambda, DynamoDB, EventBridge, Route 53, ACM |
 | CI/CD | GitHub Actions, Docker Hub, AWS OIDC, Systems Manager deployment |
 
 ## Production Deployment
 
-The public entry point remains **[https://medimind-ai.online](https://medimind-ai.online)**. CloudFront and a private S3 bucket keep a lightweight startup page available when the application EC2 instance is stopped. The control API starts EC2 idempotently, polls a real readiness endpoint, and redirects to `https://app.medimind-ai.online` only after Django, PostgreSQL, FastAPI, and required model artifacts are ready.
+The public entry point remains **[https://medimind-ai.online](https://medimind-ai.online)**. An API Gateway custom domain and Lambda keep a lightweight startup page available when the application EC2 instance is stopped. The control API starts EC2 idempotently, polls a real readiness endpoint, and redirects to `https://app.medimind-ai.online` only after Django, PostgreSQL, FastAPI, and required model artifacts are ready.
 
 Nginx terminates application TLS, redirects HTTP to HTTPS, serves collected static and uploaded media files, and proxies Django and FastAPI. Activity leases in DynamoDB prevent shutdown during authenticated work, uploads, predictions, deployments, or other mutating requests. EventBridge invokes a conservative idle evaluator, which stops only the configured instance after the idle and minimum-runtime conditions are satisfied. Let's Encrypt certificates, uploaded media, databases, monitoring data, and model files remain persistent outside disposable application containers.
 

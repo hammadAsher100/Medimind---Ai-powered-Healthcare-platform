@@ -2,7 +2,7 @@
 
 This directory contains the infrastructure and operating-system integration that allows the existing MediMind Docker Compose application to remain stopped when unused and start automatically from an always-available web entry point.
 
-The design intentionally keeps long-running medical report and AI requests away from CloudFront. The root domain hosts only the startup experience; the running application uses `app.medimind-ai.online` directly through Nginx.
+The design intentionally keeps long-running medical report and AI requests away from the serverless entry layer. The root domain hosts only the startup experience through API Gateway and Lambda; the running application uses `app.medimind-ai.online` directly through Nginx.
 
 ## Resources
 
@@ -10,7 +10,7 @@ The design intentionally keeps long-running medical report and AI requests away 
 |---|---|---|
 | `dns-template.yaml` | Any (recommended `ap-south-1`) | Retained Route 53 hosted zone |
 | `template.yaml` | `ap-south-1` | Wake/status Lambda, idle Lambda, HTTP API, DynamoDB state table, schedules, least-privilege policies, optional Elastic IP |
-| `edge-template.yaml` | `us-east-1` | ACM viewer certificate, private startup S3 bucket, CloudFront distribution, root/`www` aliases, `app` A record |
+| `edge-template.yaml` | `ap-south-1` | ACM certificate, API Gateway root/`www` custom domains and mappings, `app` A record |
 
 AWS SAM/CloudFormation is the only IaC system used. Application data, Docker volumes, certificates, models, and the existing EC2 instance are not created or replaced by these templates.
 
@@ -23,9 +23,6 @@ AWS SAM/CloudFormation is the only IaC system used. Application data, Docker vol
 - `HEALTH_CHECK_URL=https://app.medimind-ai.online/readyz`
 - `IDLE_TIMEOUT_MINUTES` (default `30`)
 - `MINIMUM_RUNTIME_MINUTES` (default `15`)
-- A random `ORIGIN_TOKEN` of at least 32 characters
-
-Never commit the origin token. Store it as a GitHub environment secret or pass it interactively to CloudFormation.
 
 ## Safe deployment order
 
@@ -41,7 +38,7 @@ Install AWS SAM CLI, then validate both SAM and CloudFormation templates:
 ```bash
 sam validate --lint -t infrastructure/on-demand/template.yaml
 aws cloudformation validate-template --template-body file://infrastructure/on-demand/dns-template.yaml
-aws cloudformation validate-template --region us-east-1 --template-body file://infrastructure/on-demand/edge-template.yaml
+aws cloudformation validate-template --region ap-south-1 --template-body file://infrastructure/on-demand/edge-template.yaml
 ```
 
 ### 2. Create Route 53 hosted zone
@@ -79,11 +76,10 @@ sam deploy \
     HealthCheckUrl=https://app.medimind-ai.online/readyz \
     IdleTimeoutMinutes=30 \
     MinimumRuntimeMinutes=15 \
-    OriginToken=RANDOM_SECRET \
     AutomationEnabled=false
 ```
 
-Record the `WakeApiOriginDomain`, `ActivityTableName`, and `OriginElasticIp` outputs.
+Record the `WakeApiId`, `ActivityTableName`, and `WakeApiEndpoint` outputs.
 
 Keep `AutomationEnabled=false` throughout migration. Enable it only after activity tracking, wake/readiness, graceful shutdown, and the public entry cutover have all passed validation.
 
@@ -100,29 +96,19 @@ aws ec2 modify-instance-metadata-options \
 
 Do not place long-lived AWS keys in `.env`. The inline policy created by the regional stack restricts application access to this instance's activity-table partition.
 
-### 4. Deploy edge stack without root-domain cutover
+### 4. Deploy entry-domain stack without root-domain cutover
 
-Deploy this stack in `us-east-1`, because CloudFront viewer certificates must exist there. This creates `app.medimind-ai.online`, the startup distribution, and its viewer certificate while the DNS stack keeps live root and `www` traffic on EC2.
+Deploy this stack in `ap-south-1`. It creates `app.medimind-ai.online`, an ACM certificate, and API Gateway custom domains for root and `www` while the DNS stack keeps live traffic on EC2.
 
 ```bash
 aws cloudformation deploy \
   --stack-name medimind-entry \
-  --region us-east-1 \
+  --region ap-south-1 \
   --template-file infrastructure/on-demand/edge-template.yaml \
   --parameter-overrides \
     HostedZoneId=ROUTE53_ZONE_ID \
-    ApiOriginDomain=API_GATEWAY_HOSTNAME \
-    OriginElasticIp=ELASTIC_IP \
-    OriginToken=RANDOM_SECRET
-```
-
-Upload the startup assets and invalidate CloudFront:
-
-```bash
-STARTUP_BUCKET=$(aws cloudformation describe-stacks --stack-name medimind-entry --region us-east-1 --query "Stacks[0].Outputs[?OutputKey=='StartupBucketName'].OutputValue" --output text)
-DISTRIBUTION_ID=$(aws cloudformation describe-stacks --stack-name medimind-entry --region us-east-1 --query "Stacks[0].Outputs[?OutputKey=='DistributionId'].OutputValue" --output text)
-aws s3 sync infrastructure/on-demand/site/ "s3://$STARTUP_BUCKET/" --delete --cache-control 'public,max-age=300'
-aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION_ID" --paths '/*'
+    WakeApiId=HTTP_API_ID \
+    OriginElasticIp=ELASTIC_IP
 ```
 
 ### 5. Issue the EC2 origin certificate
@@ -168,7 +154,7 @@ The regional stack attaches the required EC2/DynamoDB permissions to the existin
 
 ### 8. Cut over the public entry domain
 
-After the stopped-instance wake test succeeds, update the DNS stack so its existing root and `www` records change in place from the EC2 Elastic IP to CloudFront:
+After the stopped-instance wake test succeeds, update the DNS stack so its existing root and `www` records change atomically from the EC2 Elastic IP to their API Gateway custom domains:
 
 ```bash
 aws cloudformation deploy \
@@ -177,11 +163,14 @@ aws cloudformation deploy \
   --template-file infrastructure/on-demand/dns-template.yaml \
   --parameter-overrides \
     OriginElasticIp=ELASTIC_IP \
-    EntryDistributionDomain=CLOUDFRONT_DOMAIN \
+    EntryRootDomain=ROOT_REGIONAL_DOMAIN \
+    EntryRootHostedZoneId=ROOT_REGIONAL_ZONE_ID \
+    EntryWwwDomain=WWW_REGIONAL_DOMAIN \
+    EntryWwwHostedZoneId=WWW_REGIONAL_ZONE_ID \
     CutoverEntryDns=true
 ```
 
-Root and `www` will then point to CloudFront, while `app` continues to point directly to the Elastic IP.
+Root and `www` will then point to API Gateway, while `app` continues to point directly to the Elastic IP.
 
 Finally, update the regional stack with `AutomationEnabled=true` to activate the five-minute idle evaluation and periodic certificate-maintenance wake.
 

@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: MediMind always-on CloudFront/S3 entry layer. Deploy in us-east-1.
+Description: MediMind always-on regional API Gateway entry domains. Deploy in the application region.
 
 Parameters:
   DomainName:
@@ -10,16 +10,12 @@ Parameters:
     Default: app.medimind-ai.online
   HostedZoneId:
     Type: AWS::Route53::HostedZone::Id
-  ApiOriginDomain:
+  WakeApiId:
     Type: String
-    Description: API Gateway hostname without https:// from the regional control stack output.
+    Description: HTTP API identifier from the regional control stack.
   OriginElasticIp:
     Type: String
     AllowedPattern: ^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$
-  OriginToken:
-    Type: String
-    NoEcho: true
-    MinLength: 32
 
 Resources:
   ViewerCertificate:
@@ -38,142 +34,41 @@ Resources:
         - Key: Application
           Value: MediMind
 
-  StartupBucket:
-    Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
-    UpdateReplacePolicy: Retain
+  RootApiDomain:
+    Type: AWS::ApiGatewayV2::DomainName
     Properties:
-      BucketEncryption:
-        ServerSideEncryptionConfiguration:
-          - ServerSideEncryptionByDefault:
-              SSEAlgorithm: AES256
-      PublicAccessBlockConfiguration:
-        BlockPublicAcls: true
-        BlockPublicPolicy: true
-        IgnorePublicAcls: true
-        RestrictPublicBuckets: true
-      OwnershipControls:
-        Rules:
-          - ObjectOwnership: BucketOwnerEnforced
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ViewerCertificate
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
       Tags:
-        - Key: Application
-          Value: MediMind
+        Application: MediMind
 
-  OriginAccessControl:
-    Type: AWS::CloudFront::OriginAccessControl
+  WwwApiDomain:
+    Type: AWS::ApiGatewayV2::DomainName
     Properties:
-      OriginAccessControlConfig:
-        Name: medimind-startup-site-oac
-        OriginAccessControlOriginType: s3
-        SigningBehavior: always
-        SigningProtocol: sigv4
-
-  SecurityHeadersPolicy:
-    Type: AWS::CloudFront::ResponseHeadersPolicy
-    Properties:
-      ResponseHeadersPolicyConfig:
-        Name: medimind-startup-security-headers
-        SecurityHeadersConfig:
-          ContentSecurityPolicy:
-            ContentSecurityPolicy: "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
-            Override: true
-          ContentTypeOptions:
-            Override: true
-          FrameOptions:
-            FrameOption: DENY
-            Override: true
-          ReferrerPolicy:
-            ReferrerPolicy: same-origin
-            Override: true
-          StrictTransportSecurity:
-            AccessControlMaxAgeSec: 31536000
-            IncludeSubdomains: false
-            Override: true
-          XSSProtection:
-            Protection: true
-            ModeBlock: true
-            Override: true
-
-  Distribution:
-    Type: AWS::CloudFront::Distribution
-    Properties:
-      DistributionConfig:
-        Aliases:
-          - !Ref DomainName
-          - !Sub www.${DomainName}
-        Comment: MediMind always-on startup entry layer
-        DefaultRootObject: index.html
-        Enabled: true
-        HttpVersion: http2and3
-        IPV6Enabled: true
-        PriceClass: PriceClass_200
-        Origins:
-          - Id: startup-site
-            DomainName: !GetAtt StartupBucket.RegionalDomainName
-            OriginAccessControlId: !GetAtt OriginAccessControl.Id
-            S3OriginConfig:
-              OriginAccessIdentity: ''
-          - Id: wake-api
-            DomainName: !Ref ApiOriginDomain
-            CustomOriginConfig:
-              OriginProtocolPolicy: https-only
-              OriginSSLProtocols: [TLSv1.2]
-              OriginReadTimeout: 20
-              OriginKeepaliveTimeout: 5
-            OriginCustomHeaders:
-              - HeaderName: X-MediMind-Origin-Token
-                HeaderValue: !Ref OriginToken
-        DefaultCacheBehavior:
-          TargetOriginId: startup-site
-          ViewerProtocolPolicy: redirect-to-https
-          AllowedMethods: [GET, HEAD, OPTIONS]
-          CachedMethods: [GET, HEAD, OPTIONS]
-          Compress: true
-          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6
-          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
-        CacheBehaviors:
-          - PathPattern: /control/*
-            TargetOriginId: wake-api
-            ViewerProtocolPolicy: https-only
-            AllowedMethods: [GET, HEAD, OPTIONS, PUT, PATCH, POST, DELETE]
-            CachedMethods: [GET, HEAD, OPTIONS]
-            Compress: true
-            CachePolicyId: 4135ea2d-6df8-44a3-9df3-4b5a84be39ad
-            OriginRequestPolicyId: b689b0a8-53d0-40ab-baf2-68738e2966ac
-            ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
-        ViewerCertificate:
-          AcmCertificateArn: !Ref ViewerCertificate
-          MinimumProtocolVersion: TLSv1.2_2021
-          SslSupportMethod: sni-only
-        CustomErrorResponses:
-          - ErrorCode: 403
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 0
-          - ErrorCode: 404
-            ResponseCode: 200
-            ResponsePagePath: /index.html
-            ErrorCachingMinTTL: 0
+      DomainName: !Sub www.${DomainName}
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ViewerCertificate
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
       Tags:
-        - Key: Application
-          Value: MediMind
+        Application: MediMind
 
-  StartupBucketPolicy:
-    Type: AWS::S3::BucketPolicy
+  RootApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
     Properties:
-      Bucket: !Ref StartupBucket
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Sid: AllowCloudFrontReadOnly
-            Effect: Allow
-            Principal:
-              Service: cloudfront.amazonaws.com
-            Action: s3:GetObject
-            Resource: !Sub ${StartupBucket.Arn}/*
-            Condition:
-              StringEquals:
-                AWS:SourceArn: !Sub arn:${AWS::Partition}:cloudfront::${AWS::AccountId}:distribution/${Distribution}
+      ApiId: !Ref WakeApiId
+      DomainName: !Ref RootApiDomain
+      Stage: '$default'
+
+  WwwApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      ApiId: !Ref WakeApiId
+      DomainName: !Ref WwwApiDomain
+      Stage: '$default'
 
   AppRecord:
     Type: AWS::Route53::RecordSet
@@ -185,12 +80,14 @@ Resources:
       ResourceRecords: [!Ref OriginElasticIp]
 
 Outputs:
-  StartupBucketName:
-    Value: !Ref StartupBucket
-  DistributionId:
-    Value: !Ref Distribution
-  DistributionDomainName:
-    Value: !GetAtt Distribution.DomainName
+  RootRegionalDomainName:
+    Value: !GetAtt RootApiDomain.RegionalDomainName
+  RootRegionalHostedZoneId:
+    Value: !GetAtt RootApiDomain.RegionalHostedZoneId
+  WwwRegionalDomainName:
+    Value: !GetAtt WwwApiDomain.RegionalDomainName
+  WwwRegionalHostedZoneId:
+    Value: !GetAtt WwwApiDomain.RegionalHostedZoneId
   EntryUrl:
     Value: !Sub https://${DomainName}
   ApplicationUrl:
