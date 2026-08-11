@@ -21,10 +21,11 @@ def _env_csv(name, default=""):
 
 
 DEBUG = False
-_PRODUCTION_HOSTS = ["medimind-ai.online", "www.medimind-ai.online"]
+_PRODUCTION_HOSTS = ["medimind-ai.online", "www.medimind-ai.online", "app.medimind-ai.online"]
 _PRODUCTION_ORIGINS = [
     "https://medimind-ai.online",
     "https://www.medimind-ai.online",
+    "https://app.medimind-ai.online",
 ]
 ALLOWED_HOSTS = list(dict.fromkeys(_env_csv("DJANGO_ALLOWED_HOSTS") + _PRODUCTION_HOSTS))
 

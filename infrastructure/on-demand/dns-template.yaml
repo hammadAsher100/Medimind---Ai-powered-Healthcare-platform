@@ -1,0 +1,27 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Route 53 hosted zone bootstrap for MediMind. Deploy once, then update registrar nameservers.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: medimind-ai.online
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: MediMind production DNS managed by CloudFormation
+      HostedZoneTags:
+        - Key: Application
+          Value: MediMind
+
+Outputs:
+  HostedZoneId:
+    Value: !Ref HostedZone
+  NameServers:
+    Value: !Join [',', !GetAtt HostedZone.NameServers]
+    Description: Replace the Hostinger registrar nameservers with these values before deploying the edge stack.

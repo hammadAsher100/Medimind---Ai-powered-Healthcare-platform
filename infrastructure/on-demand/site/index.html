@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#194d3a">
+  <title>MediMind AI — Starting</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="startup-shell">
+    <section class="startup-card" aria-labelledby="startup-title">
+      <div class="brand" aria-label="MediMind AI">
+        <span class="brand-mark" aria-hidden="true">M</span>
+        <span>MediMind AI</span>
+      </div>
+
+      <div class="visual" aria-hidden="true">
+        <span class="pulse pulse-one"></span>
+        <span class="pulse pulse-two"></span>
+        <span class="heart-line"></span>
+      </div>
+
+      <p class="eyebrow">Secure on-demand environment</p>
+      <h1 id="startup-title">MediMind AI is starting…</h1>
+      <p class="description">We’re preparing the healthcare workspace and loading its AI services. This normally takes a few minutes.</p>
+
+      <div class="progress" role="progressbar" aria-label="Startup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="12">
+        <span id="progressBar"></span>
+      </div>
+
+      <div class="status-row" aria-live="polite">
+        <span class="status-dot"></span>
+        <span id="statusText">Contacting the secure startup service</span>
+      </div>
+
+      <p class="hint" id="hintText">You can keep this page open. It will redirect automatically when MediMind is ready.</p>
+      <button type="button" id="retryButton" class="retry" hidden>Try again</button>
+    </section>
+  </main>
+  <script src="/app.js" defer></script>
+</body>
+</html>

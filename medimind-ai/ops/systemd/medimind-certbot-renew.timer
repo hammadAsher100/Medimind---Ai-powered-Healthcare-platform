@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly MediMind certificate renewal check
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=7d
+Persistent=true
+RandomizedDelaySec=30min
+
+[Install]
+WantedBy=timers.target

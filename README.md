@@ -140,7 +140,16 @@ Optional retrieval-augmented flows use **Cohere** embeddings and **Qdrant**. The
 
 ```mermaid
 flowchart TB
-    User["User browser"] -->|HTTPS| Nginx["Nginx reverse proxy"]
+    User["User browser"] -->|root / www| CloudFront["CloudFront entry layer"]
+    CloudFront --> Startup["Private S3 startup page"]
+    Startup -->|wake / status| Wake["API Gateway + Lambda"]
+    Wake -->|idempotent start| EC2["On-demand EC2"]
+    User -->|app subdomain| Nginx["Nginx reverse proxy on EC2"]
+    Scheduler["EventBridge idle checks"] --> Shutdown["Lease-aware shutdown Lambda"]
+    Shutdown -->|safe stop| EC2
+    Activity[(DynamoDB activity + leases)] --> Shutdown
+    Wake --> Activity
+    EC2 --> Nginx
     Nginx -->|Pages, static, /api| Django["Django + DRF"]
     Nginx -->|/ai| FastAPI["FastAPI AI service"]
     Django -->|Internal HTTP| FastAPI
@@ -159,7 +168,7 @@ flowchart TB
     MLflow["MLflow"] -. feature flagged .-> PostgreSQL
 ```
 
-All services run in Docker on the EC2 host. Only Nginx publishes host ports; PostgreSQL, Qdrant, MLflow, Prometheus, Grafana, Django, and FastAPI remain on the Compose network.
+The always-on entry layer is serverless and displays a branded startup page while EC2 boots. The application stays on `app.medimind-ai.online`, directly behind Nginx, so long CPU-bound inference requests retain the existing 300-second timeout instead of being constrained by a CDN origin timeout. All application services run in Docker on EC2; only Nginx publishes host ports. PostgreSQL, Qdrant, MLflow, Prometheus, Grafana, Django, and FastAPI remain on the Compose network.
 
 ## Technology Stack
 
@@ -173,12 +182,14 @@ All services run in Docker on the EC2 host. Only Nginx publishes host ports; Pos
 | LLM / retrieval | Groq, OpenRouter HTTP integration, Cohere embeddings, Qdrant |
 | Data | PostgreSQL in production, SQLite for the local launcher, persistent Docker media volume |
 | MLOps / monitoring | MLflow, Prometheus, Grafana |
-| Infrastructure | Docker Compose, Nginx, Let's Encrypt TLS, AWS EC2, S3 model storage |
+| Infrastructure | Docker Compose, Nginx, Let's Encrypt TLS, on-demand AWS EC2, CloudFront, S3, API Gateway, Lambda, DynamoDB, EventBridge, Route 53 |
 | CI/CD | GitHub Actions, Docker Hub, AWS OIDC, Systems Manager deployment |
 
 ## Production Deployment
 
-The production application runs at **[https://medimind-ai.online](https://medimind-ai.online)** on AWS EC2. Nginx terminates TLS, redirects HTTP to HTTPS, serves collected static files, and proxies Django and FastAPI. Let's Encrypt certificates, uploaded media, databases, monitoring data, and model files are persistent and remain outside disposable application containers.
+The public entry point remains **[https://medimind-ai.online](https://medimind-ai.online)**. CloudFront and a private S3 bucket keep a lightweight startup page available when the application EC2 instance is stopped. The control API starts EC2 idempotently, polls a real readiness endpoint, and redirects to `https://app.medimind-ai.online` only after Django, PostgreSQL, FastAPI, and required model artifacts are ready.
+
+Nginx terminates application TLS, redirects HTTP to HTTPS, serves collected static and uploaded media files, and proxies Django and FastAPI. Activity leases in DynamoDB prevent shutdown during authenticated work, uploads, predictions, deployments, or other mutating requests. EventBridge invokes a conservative idle evaluator, which stops only the configured instance after the idle and minimum-runtime conditions are satisfied. Let's Encrypt certificates, uploaded media, databases, monitoring data, and model files remain persistent outside disposable application containers.
 
 ```mermaid
 flowchart LR
@@ -188,20 +199,25 @@ flowchart LR
     Build --> Registry["Push latest + commit SHA to Docker Hub"]
     Registry --> OIDC["AWS OIDC authentication"]
     OIDC --> SSM["SSM command on EC2"]
-    SSM --> Checkout["Checkout exact Git commit"]
+    SSM --> Power["Start EC2 if required + deployment lease"]
+    Power --> Checkout["Checkout exact Git commit"]
     Checkout --> Sync["Sync external models from S3"]
     Sync --> Replace["Compose down, pull, recreate"]
     Replace --> Health["Service, model, Nginx, and HTTPS checks"]
     Health --> Cleanup["Prune unused images"]
+    Cleanup --> Restore["Release lease; restore prior stopped state when safe"]
 ```
 
-The workflow preserves the server `.env`, certificate hierarchy, `/opt/medimind/models`, and named Docker volumes. It never rebuilds images on EC2 and never uses `docker compose down -v`. FastAPI is force-recreated after model synchronization so an updated TensorFlow model cannot remain cached in memory.
+The workflow preserves the server `.env`, certificate hierarchy, `/opt/medimind/models`, and named Docker volumes. It never rebuilds images on EC2 and never uses `docker compose down -v`. FastAPI is force-recreated after model synchronization so an updated TensorFlow model cannot remain cached in memory. When on-demand deployment is enabled, CI records the original power state, starts the instance through EC2 APIs, holds a deployment lease, and restores a previously stopped instance only if no visitor activity occurred meanwhile.
+
+Infrastructure templates, rollout order, DNS cutover safeguards, certificate preparation, cost controls, and recovery procedures are documented in [`infrastructure/on-demand/README.md`](infrastructure/on-demand/README.md). The root/www DNS cutover is deliberately disabled by default so this architecture can be provisioned and tested without interrupting the current production endpoint.
 
 ## Project Structure
 
 ```text
 .
 ├── .github/workflows/aws-deploy.yml     # Build, publish, and EC2 deployment workflow
+├── infrastructure/on-demand/            # On-demand control plane, edge entry layer, startup UI
 ├── README.md
 └── medimind-ai/
     ├── ai_service/                      # FastAPI app, routers, CNN registry, LLM and RAG
@@ -258,7 +274,7 @@ Open <http://127.0.0.1:8000/login/>. Stop both development services with `Ctrl+C
 
 ### Full Docker Compose stack
 
-The checked-in Compose file mirrors production HTTPS. Before starting Nginx locally, provide non-production certificates at the configured `/opt/medimind/certbot/conf/live/medimind-ai.online/` host path, or use a local-only Compose override to point the read-only certificate mount at your development certificates. The model mount similarly expects `/opt/medimind/models`.
+The checked-in Compose file mirrors the on-demand production origin. Before starting Nginx locally, provide non-production certificates at the configured `/opt/medimind/certbot/conf/live/app.medimind-ai.online/` host path, or use a local-only Compose override to point the read-only certificate mount at your development certificates. The model mount similarly expects `/opt/medimind/models`.
 
 ```bash
 docker compose config --quiet
@@ -291,6 +307,7 @@ Use [`medimind-ai/.env.example`](medimind-ai/.env.example) as the source of vari
 | `MLFLOW_TRACKING_URI`, `MLFLOW_ARTIFACT_ROOT` | Optional experiment tracking |
 | `DISABLE_ML`, `DISABLE_CNN`, `DISABLE_QDRANT`, `DISABLE_MLFLOW` | Feature flags |
 | `GRAFANA_ADMIN_USER`, `GRAFANA_ADMIN_PASSWORD` | Internal Grafana authentication |
+| `ACTIVITY_TRACKING_ENABLED`, `ACTIVITY_TABLE_NAME`, `EC2_INSTANCE_ID`, `AWS_REGION` | On-demand EC2 activity and lease tracking |
 
 The real `.env`, credentials, private keys, uploaded reports, and trained model files must remain untracked.
 

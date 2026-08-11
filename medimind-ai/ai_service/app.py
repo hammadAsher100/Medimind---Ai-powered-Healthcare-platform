@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import logging
 import os
 
 from dotenv import load_dotenv
@@ -6,6 +7,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
 
+from activity import activity_middleware
 
 from rag.embeddings.cohere_embedder import CohereEmbedder
 from rag.vector_store.qdrant_store import QdrantStore
@@ -22,6 +24,7 @@ from routers import (
 )
 
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
@@ -45,6 +48,7 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="MediMind AI Service", version="1.0.0", lifespan=lifespan)
+app.middleware("http")(activity_middleware)
 cors_origins_str = os.environ.get("FASTAPI_CORS_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:18000,http://django:8000")
 app.add_middleware(
     CORSMiddleware,
@@ -80,3 +84,41 @@ async def health():
         "service": "medimind-ai",
         "cnn_models": getattr(app.state, "cnn_registry", CNNModelRegistry()).status(),
     }
+
+
+@app.get("/readyz")
+async def readiness():
+    from model_registry import DISEASES, get_disease_model
+
+    checks = {}
+    ml_disabled = os.environ.get("DISABLE_ML", "False").lower() == "true"
+    for disease in DISEASES:
+        if ml_disabled:
+            checks[disease] = False
+            continue
+        try:
+            bundle = get_disease_model(disease)
+            checks[disease] = (
+                bundle.get("model") is not None
+                and bundle.get("scaler") is not None
+                and bool(bundle.get("feature_columns"))
+            )
+        except Exception:
+            logger.exception("Readiness check failed while loading the %s model", disease)
+            checks[disease] = False
+
+    cnn_disabled = os.environ.get("DISABLE_CNN", "False").lower() == "true"
+    registry = getattr(app.state, "cnn_registry", CNNModelRegistry())
+    cnn_status = registry.status()
+    checks["pneumonia_cnn"] = not cnn_disabled and (
+        cnn_status.get("loaded_count") == cnn_status.get("configured_count")
+        and cnn_status.get("configured_count", 0) > 0
+    )
+    ready = all(checks.values())
+    from fastapi.responses import JSONResponse
+
+    return JSONResponse(
+        {"ready": ready, "service": "medimind-ai", "checks": checks},
+        status_code=200 if ready else 503,
+        headers={"Cache-Control": "no-store"},
+    )
