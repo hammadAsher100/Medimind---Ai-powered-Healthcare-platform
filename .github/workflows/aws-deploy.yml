@@ -58,8 +58,13 @@ jobs:
           set -euo pipefail
           CERT_ROOT=$(mktemp -d)
           mkdir -p "$CERT_ROOT/live/app.medimind-ai.online"
+          mkdir -p "$CERT_ROOT/live/medimind-ai.online"
           openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
             -subj "/CN=medimind-ai.online" \
+            -keyout "$CERT_ROOT/live/medimind-ai.online/privkey.pem" \
+            -out "$CERT_ROOT/live/medimind-ai.online/fullchain.pem"
+          openssl req -x509 -nodes -newkey rsa:2048 -days 1 \
+            -subj "/CN=app.medimind-ai.online" \
             -keyout "$CERT_ROOT/live/app.medimind-ai.online/privkey.pem" \
             -out "$CERT_ROOT/live/app.medimind-ai.online/fullchain.pem"
           docker run --rm \
@@ -289,6 +294,8 @@ jobs:
           CERTBOT_WEBROOT="/opt/medimind/certbot/www"
           CERT_FULLCHAIN="$CERTBOT_CONF/live/app.medimind-ai.online/fullchain.pem"
           CERT_PRIVATE_KEY="$CERTBOT_CONF/live/app.medimind-ai.online/privkey.pem"
+          LEGACY_CERT_FULLCHAIN="$CERTBOT_CONF/live/medimind-ai.online/fullchain.pem"
+          LEGACY_CERT_PRIVATE_KEY="$CERTBOT_CONF/live/medimind-ai.online/privkey.pem"
           ENV_BACKUP="/tmp/medimind-production.env"
 
           mkdir -p "$MODEL_DIR" "$CERTBOT_WEBROOT/.well-known/acme-challenge"
@@ -342,6 +349,8 @@ jobs:
           echo "Verifying persistent Let's Encrypt certificate files"
           test -s "$CERT_FULLCHAIN"
           test -s "$CERT_PRIVATE_KEY"
+          test -s "$LEGACY_CERT_FULLCHAIN"
+          test -s "$LEGACY_CERT_PRIVATE_KEY"
           openssl x509 -in "$CERT_FULLCHAIN" -noout -subject -issuer -enddate
           openssl x509 -in "$CERT_FULLCHAIN" -noout -checkend 86400
 
