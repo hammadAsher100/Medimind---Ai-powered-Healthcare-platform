@@ -50,7 +50,10 @@ aws cloudformation validate-template --region us-east-1 --template-body file://i
 aws cloudformation deploy \
   --stack-name medimind-dns \
   --region ap-south-1 \
-  --template-file infrastructure/on-demand/dns-template.yaml
+  --template-file infrastructure/on-demand/dns-template.yaml \
+  --parameter-overrides \
+    OriginElasticIp=ELASTIC_IP \
+    CutoverEntryDns=false
 
 aws cloudformation describe-stacks \
   --stack-name medimind-dns \
@@ -58,7 +61,7 @@ aws cloudformation describe-stacks \
   --query 'Stacks[0].Outputs'
 ```
 
-Replace the domain's Hostinger nameservers with the four `NameServers` output values. Wait until public NS queries return Route 53 before continuing. This registrar action cannot be performed by CloudFormation.
+This first creates root and `www` A records pointing to the existing EC2 Elastic IP. Replace the domain's Hostinger nameservers with the four `NameServers` output values only after confirming those records exist. Wait until public NS queries return Route 53 before continuing. This registrar action cannot be performed by CloudFormation.
 
 ### 3. Deploy regional control plane
 
@@ -96,7 +99,7 @@ Do not place long-lived AWS keys in `.env`. The inline policy created by the reg
 
 ### 4. Deploy edge stack without root-domain cutover
 
-Deploy this stack in `us-east-1`, because CloudFront viewer certificates must exist there. Keep `CutoverEntryDns=false` during validation. This creates `app.medimind-ai.online` but leaves the live root and `www` records untouched.
+Deploy this stack in `us-east-1`, because CloudFront viewer certificates must exist there. This creates `app.medimind-ai.online`, the startup distribution, and its viewer certificate while the DNS stack keeps live root and `www` traffic on EC2.
 
 ```bash
 aws cloudformation deploy \
@@ -107,8 +110,7 @@ aws cloudformation deploy \
     HostedZoneId=ROUTE53_ZONE_ID \
     ApiOriginDomain=API_GATEWAY_HOSTNAME \
     OriginElasticIp=ELASTIC_IP \
-    OriginToken=RANDOM_SECRET \
-    CutoverEntryDns=false
+    OriginToken=RANDOM_SECRET
 ```
 
 Upload the startup assets and invalidate CloudFront:
@@ -163,7 +165,20 @@ The regional stack attaches the required EC2/DynamoDB permissions to the existin
 
 ### 8. Cut over the public entry domain
 
-After the stopped-instance wake test succeeds, update the edge stack with `CutoverEntryDns=true`. Root and `www` will then point to CloudFront, while `app` continues to point directly to the Elastic IP.
+After the stopped-instance wake test succeeds, update the DNS stack so its existing root and `www` records change in place from the EC2 Elastic IP to CloudFront:
+
+```bash
+aws cloudformation deploy \
+  --stack-name medimind-dns \
+  --region ap-south-1 \
+  --template-file infrastructure/on-demand/dns-template.yaml \
+  --parameter-overrides \
+    OriginElasticIp=ELASTIC_IP \
+    EntryDistributionDomain=CLOUDFRONT_DOMAIN \
+    CutoverEntryDns=true
+```
+
+Root and `www` will then point to CloudFront, while `app` continues to point directly to the Elastic IP.
 
 ## Runtime behavior
 
