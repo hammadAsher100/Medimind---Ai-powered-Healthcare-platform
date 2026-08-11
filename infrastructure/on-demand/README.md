@@ -79,10 +79,13 @@ sam deploy \
     HealthCheckUrl=https://app.medimind-ai.online/readyz \
     IdleTimeoutMinutes=30 \
     MinimumRuntimeMinutes=15 \
-    OriginToken=RANDOM_SECRET
+    OriginToken=RANDOM_SECRET \
+    AutomationEnabled=false
 ```
 
 Record the `WakeApiOriginDomain`, `ActivityTableName`, and `OriginElasticIp` outputs.
+
+Keep `AutomationEnabled=false` throughout migration. Enable it only after activity tracking, wake/readiness, graceful shutdown, and the public entry cutover have all passed validation.
 
 The Django and FastAPI containers use the existing EC2 instance role to write activity leases. Require IMDSv2 and allow its response to cross the Docker network's additional hop:
 
@@ -179,6 +182,8 @@ aws cloudformation deploy \
 ```
 
 Root and `www` will then point to CloudFront, while `app` continues to point directly to the Elastic IP.
+
+Finally, update the regional stack with `AutomationEnabled=true` to activate the five-minute idle evaluation and periodic certificate-maintenance wake.
 
 ## Runtime behavior
 

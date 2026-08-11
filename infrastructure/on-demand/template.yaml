@@ -40,9 +40,15 @@ Parameters:
     Type: String
     AllowedValues: ['true', 'false']
     Default: 'true'
+  AutomationEnabled:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: Enable idle shutdown and maintenance wake schedules only after production cutover is verified.
 
 Conditions:
   ShouldCreateElasticIp: !Equals [!Ref CreateElasticIp, 'true']
+  ShouldEnableAutomation: !Equals [!Ref AutomationEnabled, 'true']
 
 Globals:
   Function:
@@ -131,7 +137,7 @@ Resources:
           Properties:
             Schedule: rate(20 days)
             Description: Periodically boot MediMind so persistent certificate renewal and boot recovery run.
-            Enabled: true
+            Enabled: !If [ShouldEnableAutomation, true, false]
       Policies:
         - Statement:
             - Sid: DescribeTargetInstance
@@ -163,7 +169,7 @@ Resources:
           Properties:
             Schedule: rate(5 minutes)
             Description: Check whether MediMind EC2 is safely idle.
-            Enabled: true
+            Enabled: !If [ShouldEnableAutomation, true, false]
       Policies:
         - Statement:
             - Sid: DescribeTargetInstance
