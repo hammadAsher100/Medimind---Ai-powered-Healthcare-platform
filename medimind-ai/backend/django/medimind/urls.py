@@ -4,9 +4,10 @@ from django.contrib import admin
 from django.urls import include, path
 from rest_framework_simplejwt.views import TokenRefreshView
 
-from . import ai_proxy, page_views
+from . import ai_proxy, page_views, readiness
 
 urlpatterns = [
+    path("readyz", readiness.readiness, name="readiness"),
     path("", page_views.dashboard_page, name="dashboard_page"),
     path("login/", page_views.login_page, name="login_page"),
     path("register/", page_views.register_page, name="register_page"),

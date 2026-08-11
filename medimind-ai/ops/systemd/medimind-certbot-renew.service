@@ -1,0 +1,8 @@
+[Unit]
+Description=Renew MediMind Let's Encrypt origin certificate
+After=docker.service medimind-compose.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/medimind/app/medimind-ai/ops/renew-production-certificate.sh

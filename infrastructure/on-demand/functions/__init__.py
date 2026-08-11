@@ -1,0 +1,1 @@
+"""MediMind serverless functions."""

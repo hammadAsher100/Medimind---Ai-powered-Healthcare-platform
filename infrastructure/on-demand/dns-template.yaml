@@ -1,0 +1,77 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Route 53 hosted zone bootstrap for MediMind. Deploy once, then update registrar nameservers.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: medimind-ai.online
+  OriginElasticIp:
+    Type: String
+    AllowedPattern: ^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$
+    Description: Existing EC2 Elastic IP used until the serverless entry cutover.
+  EntryRootDomain:
+    Type: String
+    Default: ''
+    Description: API Gateway regional hostname for the root custom domain.
+  EntryRootHostedZoneId:
+    Type: String
+    Default: ''
+  EntryWwwDomain:
+    Type: String
+    Default: ''
+    Description: API Gateway regional hostname for the www custom domain.
+  EntryWwwHostedZoneId:
+    Type: String
+    Default: ''
+  CutoverEntryDns:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+
+Conditions:
+  ShouldCutoverEntryDns: !Equals [!Ref CutoverEntryDns, 'true']
+
+Resources:
+  HostedZone:
+    Type: AWS::Route53::HostedZone
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Name: !Ref DomainName
+      HostedZoneConfig:
+        Comment: MediMind production DNS managed by CloudFormation
+      HostedZoneTags:
+        - Key: Application
+          Value: MediMind
+
+  EntryRecords:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      HostedZoneId: !Ref HostedZone
+      RecordSets: !If
+        - ShouldCutoverEntryDns
+        - - Name: !Ref DomainName
+            Type: A
+            AliasTarget:
+              DNSName: !Ref EntryRootDomain
+              HostedZoneId: !Ref EntryRootHostedZoneId
+          - Name: !Sub www.${DomainName}
+            Type: A
+            AliasTarget:
+              DNSName: !Ref EntryWwwDomain
+              HostedZoneId: !Ref EntryWwwHostedZoneId
+        - - Name: !Ref DomainName
+            Type: A
+            TTL: 60
+            ResourceRecords: [!Ref OriginElasticIp]
+          - Name: !Sub www.${DomainName}
+            Type: A
+            TTL: 60
+            ResourceRecords: [!Ref OriginElasticIp]
+
+Outputs:
+  HostedZoneId:
+    Value: !Ref HostedZone
+  NameServers:
+    Value: !Join [',', !GetAtt HostedZone.NameServers]
+    Description: Replace the Hostinger registrar nameservers with these values before deploying the edge stack.

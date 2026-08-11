@@ -7,6 +7,7 @@ CERTBOT_CONF="$CERTBOT_ROOT/conf"
 CERTBOT_WEBROOT="$CERTBOT_ROOT/www"
 CERTBOT_WORK="$CERTBOT_ROOT/work"
 CERTBOT_LOGS="$CERTBOT_ROOT/logs"
+CERTBOT_CERT_NAME="${CERTBOT_CERT_NAME:-app.medimind-ai.online}"
 
 test -f "$APP_DIR/docker-compose.yml"
 test -d "$CERTBOT_CONF"
@@ -23,6 +24,7 @@ docker run --rm \
   -v "$CERTBOT_WORK:/var/lib/letsencrypt" \
   -v "$CERTBOT_LOGS:/var/log/letsencrypt" \
   certbot/certbot:latest renew \
+  --cert-name "$CERTBOT_CERT_NAME" \
   --webroot \
   --webroot-path /var/www/certbot
 

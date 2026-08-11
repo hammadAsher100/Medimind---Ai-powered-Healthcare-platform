@@ -1,0 +1,299 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: MediMind on-demand EC2 control plane in the application region.
+
+Parameters:
+  Ec2InstanceId:
+    Type: String
+    Description: Existing MediMind EC2 instance ID.
+  Ec2InstanceRoleName:
+    Type: String
+    Description: Existing EC2 instance profile role name used by SSM and the application.
+  GitHubDeployRoleName:
+    Type: String
+    Default: MediMindGitHubDeployRole
+    Description: Existing GitHub OIDC deployment role name.
+  AppUrl:
+    Type: String
+    Default: https://app.medimind-ai.online
+  HealthCheckUrl:
+    Type: String
+    Default: https://app.medimind-ai.online/readyz
+  IdleTimeoutMinutes:
+    Type: Number
+    Default: 30
+    MinValue: 15
+  MinimumRuntimeMinutes:
+    Type: Number
+    Default: 15
+    MinValue: 5
+  StartupTimeoutSeconds:
+    Type: Number
+    Default: 900
+    MinValue: 300
+  CreateElasticIp:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'true'
+  AutomationEnabled:
+    Type: String
+    AllowedValues: ['true', 'false']
+    Default: 'false'
+    Description: Enable idle shutdown and maintenance wake schedules only after production cutover is verified.
+
+Conditions:
+  ShouldCreateElasticIp: !Equals [!Ref CreateElasticIp, 'true']
+  ShouldEnableAutomation: !Equals [!Ref AutomationEnabled, 'true']
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Architectures: [arm64]
+    Tracing: Active
+    Environment:
+      Variables:
+        EC2_INSTANCE_ID: !Ref Ec2InstanceId
+        ACTIVITY_TABLE_NAME: !Ref ActivityTable
+        IDLE_TIMEOUT_MINUTES: !Ref IdleTimeoutMinutes
+        MINIMUM_RUNTIME_MINUTES: !Ref MinimumRuntimeMinutes
+
+Resources:
+  ActivityTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: expires_at
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      Tags:
+        - Key: Application
+          Value: MediMind
+
+  WakeApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: '$default'
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 10
+        ThrottlingRateLimit: 2
+      CorsConfiguration:
+        AllowHeaders: [content-type]
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowOrigins:
+          - https://medimind-ai.online
+          - https://www.medimind-ai.online
+        MaxAge: 300
+
+  WakeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: medimind-wake-status
+      CodeUri: ./
+      Handler: functions.control.app.handler
+      MemorySize: 256
+      Timeout: 15
+      Environment:
+        Variables:
+          APP_URL: !Ref AppUrl
+          HEALTH_CHECK_URL: !Ref HealthCheckUrl
+          STARTUP_TIMEOUT_SECONDS: !Ref StartupTimeoutSeconds
+      Events:
+        Wake:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /control/wake
+            Method: POST
+        Status:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /control/status
+            Method: GET
+        StartupPage:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /
+            Method: GET
+        StartupStyles:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /styles.css
+            Method: GET
+        StartupScript:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref WakeApi
+            Path: /app.js
+            Method: GET
+      Policies:
+        - Statement:
+            - Sid: DescribeTargetInstance
+              Effect: Allow
+              Action: ec2:DescribeInstances
+              Resource: '*'
+            - Sid: StartOnlyMediMindInstance
+              Effect: Allow
+              Action: ec2:StartInstances
+              Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Ec2InstanceId}
+            - Sid: UseActivityState
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+              Resource: !GetAtt ActivityTable.Arn
+
+  ShutdownFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: medimind-idle-shutdown
+      CodeUri: functions/shutdown/
+      Handler: app.handler
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - Statement:
+            - Sid: DescribeTargetInstance
+              Effect: Allow
+              Action: ec2:DescribeInstances
+              Resource: '*'
+            - Sid: StopOnlyMediMindInstance
+              Effect: Allow
+              Action: ec2:StopInstances
+              Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Ec2InstanceId}
+            - Sid: UseActivityState
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+              Resource: !GetAtt ActivityTable.Arn
+
+  CertificateMaintenanceRule:
+    Type: AWS::Events::Rule
+    Condition: ShouldEnableAutomation
+    Properties:
+      Description: Periodically boot MediMind so persistent certificate renewal and boot recovery run.
+      ScheduleExpression: rate(20 days)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WakeFunction.Arn
+          Id: WakeFunction
+
+  CertificateMaintenancePermission:
+    Type: AWS::Lambda::Permission
+    Condition: ShouldEnableAutomation
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WakeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CertificateMaintenanceRule.Arn
+
+  IdleShutdownRule:
+    Type: AWS::Events::Rule
+    Condition: ShouldEnableAutomation
+    Properties:
+      Description: Check whether MediMind EC2 is safely idle.
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ShutdownFunction.Arn
+          Id: ShutdownFunction
+
+  IdleShutdownPermission:
+    Type: AWS::Lambda::Permission
+    Condition: ShouldEnableAutomation
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ShutdownFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt IdleShutdownRule.Arn
+
+  Ec2ActivityPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MediMindActivityLeaseAccess
+      Roles: [!Ref Ec2InstanceRoleName]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: TrackOnlyThisInstance
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:PutItem
+              - dynamodb:UpdateItem
+              - dynamodb:DeleteItem
+            Resource: !GetAtt ActivityTable.Arn
+            Condition:
+              ForAllValues:StringLike:
+                dynamodb:LeadingKeys:
+                  - !Sub INSTANCE#${Ec2InstanceId}
+
+  GitHubPowerStatePolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: MediMindStateAwareDeployment
+      Roles: [!Ref GitHubDeployRoleName]
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: DescribeDeploymentInstance
+            Effect: Allow
+            Action: ec2:DescribeInstances
+            Resource: '*'
+          - Sid: ControlOnlyMediMindInstance
+            Effect: Allow
+            Action:
+              - ec2:StartInstances
+              - ec2:StopInstances
+            Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/${Ec2InstanceId}
+          - Sid: CoordinateDeploymentState
+            Effect: Allow
+            Action:
+              - dynamodb:GetItem
+              - dynamodb:UpdateItem
+            Resource: !GetAtt ActivityTable.Arn
+
+  OriginElasticIp:
+    Type: AWS::EC2::EIP
+    Condition: ShouldCreateElasticIp
+    Properties:
+      Domain: vpc
+      InstanceId: !Ref Ec2InstanceId
+      Tags:
+        - Key: Name
+          Value: medimind-origin
+        - Key: Application
+          Value: MediMind
+
+Outputs:
+  WakeApiId:
+    Value: !Ref WakeApi
+  ActivityTableName:
+    Value: !Ref ActivityTable
+  WakeApiEndpoint:
+    Value: !Sub https://${WakeApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  WakeApiOriginDomain:
+    Value: !Sub ${WakeApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}
+  OriginElasticIp:
+    Condition: ShouldCreateElasticIp
+    Value: !Ref OriginElasticIp

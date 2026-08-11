@@ -1,0 +1,94 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: MediMind always-on regional API Gateway entry domains. Deploy in the application region.
+
+Parameters:
+  DomainName:
+    Type: String
+    Default: medimind-ai.online
+  AppDomainName:
+    Type: String
+    Default: app.medimind-ai.online
+  HostedZoneId:
+    Type: AWS::Route53::HostedZone::Id
+  WakeApiId:
+    Type: String
+    Description: HTTP API identifier from the regional control stack.
+  OriginElasticIp:
+    Type: String
+    AllowedPattern: ^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$
+
+Resources:
+  ViewerCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties:
+      DomainName: !Ref DomainName
+      SubjectAlternativeNames:
+        - !Sub www.${DomainName}
+      DomainValidationOptions:
+        - DomainName: !Ref DomainName
+          HostedZoneId: !Ref HostedZoneId
+        - DomainName: !Sub www.${DomainName}
+          HostedZoneId: !Ref HostedZoneId
+      ValidationMethod: DNS
+      Tags:
+        - Key: Application
+          Value: MediMind
+
+  RootApiDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Ref DomainName
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ViewerCertificate
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+      Tags:
+        Application: MediMind
+
+  WwwApiDomain:
+    Type: AWS::ApiGatewayV2::DomainName
+    Properties:
+      DomainName: !Sub www.${DomainName}
+      DomainNameConfigurations:
+        - CertificateArn: !Ref ViewerCertificate
+          EndpointType: REGIONAL
+          SecurityPolicy: TLS_1_2
+      Tags:
+        Application: MediMind
+
+  RootApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      ApiId: !Ref WakeApiId
+      DomainName: !Ref RootApiDomain
+      Stage: '$default'
+
+  WwwApiMapping:
+    Type: AWS::ApiGatewayV2::ApiMapping
+    Properties:
+      ApiId: !Ref WakeApiId
+      DomainName: !Ref WwwApiDomain
+      Stage: '$default'
+
+  AppRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: !Ref AppDomainName
+      Type: A
+      TTL: 60
+      ResourceRecords: [!Ref OriginElasticIp]
+
+Outputs:
+  RootRegionalDomainName:
+    Value: !GetAtt RootApiDomain.RegionalDomainName
+  RootRegionalHostedZoneId:
+    Value: !GetAtt RootApiDomain.RegionalHostedZoneId
+  WwwRegionalDomainName:
+    Value: !GetAtt WwwApiDomain.RegionalDomainName
+  WwwRegionalHostedZoneId:
+    Value: !GetAtt WwwApiDomain.RegionalHostedZoneId
+  EntryUrl:
+    Value: !Sub https://${DomainName}
+  ApplicationUrl:
+    Value: !Sub https://${AppDomainName}
