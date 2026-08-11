@@ -132,12 +132,6 @@ Resources:
             ApiId: !Ref WakeApi
             Path: /control/status
             Method: GET
-        CertificateMaintenanceWake:
-          Type: Schedule
-          Properties:
-            Schedule: rate(20 days)
-            Description: Periodically boot MediMind so persistent certificate renewal and boot recovery run.
-            Enabled: !If [ShouldEnableAutomation, true, false]
       Policies:
         - Statement:
             - Sid: DescribeTargetInstance
@@ -163,13 +157,6 @@ Resources:
       Handler: app.handler
       MemorySize: 256
       Timeout: 30
-      Events:
-        IdleSchedule:
-          Type: Schedule
-          Properties:
-            Schedule: rate(5 minutes)
-            Description: Check whether MediMind EC2 is safely idle.
-            Enabled: !If [ShouldEnableAutomation, true, false]
       Policies:
         - Statement:
             - Sid: DescribeTargetInstance
@@ -187,6 +174,46 @@ Resources:
                 - dynamodb:UpdateItem
                 - dynamodb:Query
               Resource: !GetAtt ActivityTable.Arn
+
+  CertificateMaintenanceRule:
+    Type: AWS::Events::Rule
+    Condition: ShouldEnableAutomation
+    Properties:
+      Description: Periodically boot MediMind so persistent certificate renewal and boot recovery run.
+      ScheduleExpression: rate(20 days)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt WakeFunction.Arn
+          Id: WakeFunction
+
+  CertificateMaintenancePermission:
+    Type: AWS::Lambda::Permission
+    Condition: ShouldEnableAutomation
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WakeFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt CertificateMaintenanceRule.Arn
+
+  IdleShutdownRule:
+    Type: AWS::Events::Rule
+    Condition: ShouldEnableAutomation
+    Properties:
+      Description: Check whether MediMind EC2 is safely idle.
+      ScheduleExpression: rate(5 minutes)
+      State: ENABLED
+      Targets:
+        - Arn: !GetAtt ShutdownFunction.Arn
+          Id: ShutdownFunction
+
+  IdleShutdownPermission:
+    Type: AWS::Lambda::Permission
+    Condition: ShouldEnableAutomation
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref ShutdownFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt IdleShutdownRule.Arn
 
   Ec2ActivityPolicy:
     Type: AWS::IAM::Policy
