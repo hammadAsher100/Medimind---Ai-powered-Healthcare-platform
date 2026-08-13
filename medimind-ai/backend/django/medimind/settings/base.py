@@ -22,7 +22,6 @@ INSTALLED_APPS = [
     "allauth.account",
     "allauth.socialaccount",
     "allauth.socialaccount.providers.google",
-    "allauth.socialaccount.providers.apple",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -144,18 +143,8 @@ FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://fastapi:8001")
 # buttons remain hidden until a complete credential set is configured.
 GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
 GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
-APPLE_OAUTH_CLIENT_ID = os.environ.get("APPLE_OAUTH_CLIENT_ID", "").strip()
-APPLE_OAUTH_KEY_ID = os.environ.get("APPLE_OAUTH_KEY_ID", "").strip()
-APPLE_OAUTH_TEAM_ID = os.environ.get("APPLE_OAUTH_TEAM_ID", "").strip()
-APPLE_OAUTH_PRIVATE_KEY = os.environ.get("APPLE_OAUTH_PRIVATE_KEY", "").replace("\\n", "\n").strip()
 
 SOCIAL_LOGIN_GOOGLE_ENABLED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
-SOCIAL_LOGIN_APPLE_ENABLED = bool(
-    APPLE_OAUTH_CLIENT_ID
-    and APPLE_OAUTH_KEY_ID
-    and APPLE_OAUTH_TEAM_ID
-    and APPLE_OAUTH_PRIVATE_KEY
-)
 SOCIALACCOUNT_PROVIDERS = {
     "google": {
         "SCOPE": ["profile", "email"],
@@ -172,22 +161,6 @@ SOCIALACCOUNT_PROVIDERS = {
                 }]
             }
             if SOCIAL_LOGIN_GOOGLE_ENABLED
-            else {}
-        ),
-    },
-    "apple": {
-        "EMAIL_AUTHENTICATION": True,
-        "EMAIL_AUTHENTICATION_AUTO_CONNECT": True,
-        **(
-            {
-                "APPS": [{
-                    "client_id": APPLE_OAUTH_CLIENT_ID,
-                    "secret": APPLE_OAUTH_KEY_ID,
-                    "key": APPLE_OAUTH_TEAM_ID,
-                    "settings": {"certificate_key": APPLE_OAUTH_PRIVATE_KEY},
-                }]
-            }
-            if SOCIAL_LOGIN_APPLE_ENABLED
             else {}
         ),
     },

@@ -21,25 +21,17 @@ class AuthenticationSecurityTests(TestCase):
 
     @override_settings(
         SOCIAL_LOGIN_GOOGLE_ENABLED=True,
-        SOCIAL_LOGIN_APPLE_ENABLED=True,
         SOCIALACCOUNT_PROVIDERS={
             "google": {"APPS": [{"client_id": "google-id", "secret": "google-secret", "key": ""}]},
-            "apple": {
-                "APPS": [{
-                    "client_id": "com.example.web",
-                    "secret": "APPLEKEY",
-                    "key": "APPLETEAM",
-                    "settings": {"certificate_key": "test-key"},
-                }]
-            },
         },
     )
-    def test_social_login_buttons_use_post_endpoints_when_enabled(self):
-        response = self.client.get(reverse("login_page"))
-        self.assertContains(response, "Continue with Google")
-        self.assertContains(response, "Continue with Apple")
-        self.assertContains(response, reverse("google_login"))
-        self.assertContains(response, reverse("apple_login"))
+    def test_google_login_button_uses_post_endpoint_when_enabled(self):
+        for page_name in ("login_page", "register_page"):
+            with self.subTest(page=page_name):
+                response = self.client.get(reverse(page_name))
+                self.assertContains(response, "Continue with Google")
+                self.assertContains(response, reverse("google_login"))
+                self.assertNotContains(response, "Continue with Apple")
 
     def test_honeypot_blocks_registration(self):
         response = self.client.post(

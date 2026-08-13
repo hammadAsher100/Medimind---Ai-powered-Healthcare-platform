@@ -39,7 +39,6 @@ def _common_context(request, title):
 def _auth_context():
     return {
         "social_google_enabled": settings.SOCIAL_LOGIN_GOOGLE_ENABLED,
-        "social_apple_enabled": settings.SOCIAL_LOGIN_APPLE_ENABLED,
         "turnstile_enabled": settings.TURNSTILE_ENABLED,
         "turnstile_site_key": settings.TURNSTILE_SITE_KEY,
     }

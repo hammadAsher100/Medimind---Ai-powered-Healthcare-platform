@@ -64,21 +64,13 @@
       <div class="cf-turnstile auth-captcha" data-sitekey="{{ turnstile_site_key }}"></div>
       {% endif %}
     </form>
-      {% if social_google_enabled or social_apple_enabled %}
+      {% if social_google_enabled %}
       <div class="auth-divider">or</div>
       <div class="social-login-stack" aria-label="Social registration options">
-        {% if social_google_enabled %}
         <form method="post" action="{% provider_login_url 'google' process='login' %}">
           {% csrf_token %}
           <button class="btn btn-secondary btn-full social-login-button" type="submit"><span aria-hidden="true">G</span>Continue with Google</button>
         </form>
-        {% endif %}
-        {% if social_apple_enabled %}
-        <form method="post" action="{% provider_login_url 'apple' process='login' %}">
-          {% csrf_token %}
-          <button class="btn btn-secondary btn-full social-login-button" type="submit"><span class="apple-symbol" aria-hidden="true">&#63743;</span>Continue with Apple</button>
-        </form>
-        {% endif %}
       </div>
       {% endif %}
       <p class="text-center">Already registered? <a class="auth-link" href="{% url 'login_page' %}">Sign in</a></p>

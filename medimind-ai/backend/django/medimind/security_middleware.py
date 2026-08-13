@@ -36,7 +36,7 @@ class ContentSecurityPolicyMiddleware:
             "img-src 'self' data: blob:",
             "font-src 'self' https://fonts.gstatic.com data:",
             "connect-src 'self' https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
-            "frame-src 'self' https://accounts.google.com https://appleid.apple.com https://challenges.cloudflare.com",
+            "frame-src 'self' https://accounts.google.com https://challenges.cloudflare.com",
             "frame-ancestors 'none'",
             "form-action 'self'",
             "base-uri 'self'",

@@ -446,11 +446,6 @@
   font-size: 1rem;
 }
 
-.social-login-button .apple-symbol {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", sans-serif;
-  font-size: 1.25rem;
-}
-
 .auth-captcha {
   display: flex;
   justify-content: center;
