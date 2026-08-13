@@ -1,4 +1,4 @@
-{% load static %}
+{% load static socialaccount %}
 <!doctype html>
 <html lang="en">
 <head>
@@ -36,10 +36,15 @@
     <strong>Trusted by Healthcare Professionals</strong>
   </section>
   <section class="auth-panel">
-    <form class="auth-form" id="loginForm">
+    <div class="auth-form">
+    <form id="loginForm">
       <h2>Welcome back</h2>
       <p class="subtitle">Sign in to your MediMind account</p>
       <div class="form-error" id="loginError" role="alert" aria-live="polite"></div>
+      <div class="honeypot-field" aria-hidden="true">
+        <label for="loginWebsite">Website</label>
+        <input id="loginWebsite" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
       <div class="form-group">
         <label for="username">Email or username</label>
         <input id="username" name="username" type="text" autocomplete="username" required>
@@ -56,15 +61,36 @@
         <span>Remember me</span>
       </label>
       <button class="btn btn-primary btn-full btn-lg" type="submit" id="loginSubmit">Sign In</button>
-      <div class="auth-divider">or</div>
-      <p class="text-center">New to MediMind? <a class="auth-link" href="{% url 'register_page' %}">Create an account</a></p>
+      {% if turnstile_enabled %}
+      <div class="cf-turnstile auth-captcha" data-sitekey="{{ turnstile_site_key }}"></div>
+      {% endif %}
     </form>
+      {% if social_google_enabled or social_apple_enabled %}
+      <div class="auth-divider">or</div>
+      <div class="social-login-stack" aria-label="Social sign in options">
+        {% if social_google_enabled %}
+        <form method="post" action="{% provider_login_url 'google' process='login' %}">
+          {% csrf_token %}
+          <button class="btn btn-secondary btn-full social-login-button" type="submit"><span aria-hidden="true">G</span>Continue with Google</button>
+        </form>
+        {% endif %}
+        {% if social_apple_enabled %}
+        <form method="post" action="{% provider_login_url 'apple' process='login' %}">
+          {% csrf_token %}
+          <button class="btn btn-secondary btn-full social-login-button" type="submit"><span class="apple-symbol" aria-hidden="true">&#63743;</span>Continue with Apple</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endif %}
+      <p class="text-center">New to MediMind? <a class="auth-link" href="{% url 'register_page' %}">Create an account</a></p>
+    </div>
   </section>
   <div class="loading-overlay" data-loading-overlay aria-hidden="true">
     <div class="loading-card" role="status" aria-live="polite"><div class="spinner" aria-hidden="true"></div><strong data-loading-message>Signing you in...</strong></div>
   </div>
   <script src="{% static 'js/notifications.js' %}"></script>
 <script src="{% static 'js/api.js' %}?v=20260808"></script>
+  {% if turnstile_enabled %}<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>{% endif %}
   <script>
     document.getElementById("togglePassword").addEventListener("click", () => {
       const input = document.getElementById("password");
@@ -82,7 +108,9 @@
       try {
         const data = await API.post("/auth/login/", {
           username: event.target.username.value,
-          password: event.target.password.value
+          password: event.target.password.value,
+          website: event.target.website.value,
+          turnstile_token: event.target.querySelector('[name="cf-turnstile-response"]')?.value || ""
         });
         API.setTokens(data.access, data.refresh, document.getElementById("rememberMe").checked);
         notify.success("Welcome back to MediMind AI");
@@ -90,6 +118,7 @@
       } catch (error) {
         errorRegion.textContent = error.message || "Sign in failed. Check your credentials and try again.";
         notify.error(errorRegion.textContent);
+        if (window.turnstile) window.turnstile.reset();
       } finally {
         hideLoading();
         submitButton.disabled = false;

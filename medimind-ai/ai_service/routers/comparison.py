@@ -1,7 +1,7 @@
 import os
 
 import requests
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
 from llm.provider import LLMProvider
@@ -21,10 +21,13 @@ def _lab_map(report: dict) -> dict:
 
 
 @router.post("/compare-reports")
-async def compare_reports(payload: CompareReportsRequest):
+async def compare_reports(payload: CompareReportsRequest, authorization: str | None = Header(None)):
     try:
         django_url = os.environ.get("DJANGO_URL", "http://django:8000")
-        headers = {"Authorization": f"Bearer {payload.auth_token}"}
+        bearer = authorization or (f"Bearer {payload.auth_token}" if payload.auth_token else "")
+        if not bearer:
+            raise HTTPException(status_code=401, detail="Authentication is required.")
+        headers = {"Authorization": bearer}
         first = requests.get(f"{django_url}/api/reports/{payload.first_report_id}/", headers=headers, timeout=30)
         second = requests.get(f"{django_url}/api/reports/{payload.second_report_id}/", headers=headers, timeout=30)
         first.raise_for_status()

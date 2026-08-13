@@ -140,3 +140,17 @@ class KnowledgeDocumentSerializer(serializers.ModelSerializer):
         model = KnowledgeDocument
         fields = ("id", "file", "title", "source", "indexed_chunks", "metadata", "created_at")
         read_only_fields = ("id", "indexed_chunks", "metadata", "created_at")
+
+    def validate_file(self, value):
+        if not value or value.size <= 0:
+            raise serializers.ValidationError("The document is empty.")
+        if value.size > 20 * 1024 * 1024:
+            raise serializers.ValidationError("The document exceeds the 20 MB limit.")
+        if not value.name.lower().endswith(".pdf"):
+            raise serializers.ValidationError("Only PDF knowledge documents are supported.")
+        value.seek(0)
+        header = value.read(5)
+        value.seek(0)
+        if header != b"%PDF-":
+            raise serializers.ValidationError("The file is not a valid PDF document.")
+        return value

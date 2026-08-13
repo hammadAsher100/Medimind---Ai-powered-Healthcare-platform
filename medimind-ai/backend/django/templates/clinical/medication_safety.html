@@ -113,6 +113,11 @@
 </style>
 
 <script>
+function escapeHTML(value) {
+  const node = document.createElement('div');
+  node.textContent = String(value ?? '');
+  return node.innerHTML;
+}
 function runSafetyCheck() {
   const button = document.getElementById('safetyCheckButton');
   button.disabled = true;
@@ -134,11 +139,12 @@ function runSafetyCheck() {
     if (data.alerts && data.alerts.length) {
       data.alerts.forEach(a => {
         const sevClass = a.severity === 'critical' ? 'finding-critical' : a.severity === 'warning' ? 'finding-warning' : 'finding-info';
+        const severity = ['critical', 'warning', 'info'].includes(a.severity) ? a.severity : 'info';
         alertsHtml += `
           <div class="${sevClass}">
-            <strong>${a.title}</strong>
-            <span class="badge badge-${a.severity}">${a.severity}</span>
-            <p class="text-muted">${a.description}</p>
+            <strong>${escapeHTML(a.title)}</strong>
+            <span class="badge badge-${severity}">${escapeHTML(severity)}</span>
+            <p class="text-muted">${escapeHTML(a.description)}</p>
           </div>`;
       });
     } else {
@@ -167,7 +173,7 @@ function runSafetyCheck() {
             </div>
           </div>
           ${alertsHtml}
-          <p class="clinical-disclaimer">${data.disclaimer || ''}</p>
+          <p class="clinical-disclaimer">${escapeHTML(data.disclaimer || '')}</p>
         </div>
       </div>`;
   })

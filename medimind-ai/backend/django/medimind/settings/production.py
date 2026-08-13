@@ -21,6 +21,10 @@ def _env_csv(name, default=""):
 
 
 DEBUG = False
+if not os.environ.get("DJANGO_SECRET_KEY", "").strip():
+    raise ImproperlyConfigured("DJANGO_SECRET_KEY must be set in production")
+if not os.environ.get("POSTGRES_PASSWORD", "").strip():
+    raise ImproperlyConfigured("POSTGRES_PASSWORD must be set in production")
 _PRODUCTION_HOSTS = ["medimind-ai.online", "www.medimind-ai.online", "app.medimind-ai.online"]
 _PRODUCTION_ORIGINS = [
     "https://medimind-ai.online",

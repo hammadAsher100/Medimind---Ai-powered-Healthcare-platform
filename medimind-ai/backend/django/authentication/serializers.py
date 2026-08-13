@@ -1,4 +1,5 @@
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from .models import User
@@ -7,6 +8,7 @@ from .models import User
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=10)
     confirm_password = serializers.CharField(write_only=True, min_length=10)
+    phone_number = serializers.CharField(required=False, allow_blank=True, max_length=32)
 
     class Meta:
         model = User
@@ -41,6 +43,13 @@ class RegisterSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         if attrs.get("password") != attrs.get("confirm_password"):
             raise serializers.ValidationError({"confirm_password": "Passwords must match."})
+        candidate = User(
+            username=attrs.get("username", ""),
+            email=attrs.get("email", ""),
+            first_name=attrs.get("first_name", ""),
+            last_name=attrs.get("last_name", ""),
+        )
+        validate_password(attrs.get("password"), user=candidate)
         return attrs
 
     def create(self, validated_data):
@@ -68,6 +77,7 @@ class LoginSerializer(serializers.Serializer):
 
 
 class UserProfileSerializer(serializers.ModelSerializer):
+    phone_number = serializers.CharField(required=False, allow_blank=True, max_length=32)
     class Meta:
         model = User
         fields = (

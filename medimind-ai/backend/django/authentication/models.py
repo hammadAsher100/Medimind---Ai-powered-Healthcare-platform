@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from medimind.fields import EncryptedTextField
 
 
 class User(AbstractUser):
@@ -12,7 +13,7 @@ class User(AbstractUser):
 
     date_of_birth = models.DateField(null=True, blank=True)
     gender = models.CharField(max_length=32, choices=GENDER_CHOICES, blank=True)
-    phone_number = models.CharField(max_length=32, blank=True)
+    phone_number = EncryptedTextField(blank=True)
 
     def __str__(self) -> str:
         return self.get_full_name() or self.username

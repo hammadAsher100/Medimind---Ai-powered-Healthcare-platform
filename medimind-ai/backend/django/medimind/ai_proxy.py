@@ -9,30 +9,21 @@ import logging
 
 import requests
 from django.conf import settings
+from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
+from rest_framework_simplejwt.tokens import AccessToken
 
 logger = logging.getLogger(__name__)
 
 
-@csrf_exempt
+@login_required
 @require_POST
 def ai_proxy(request, path=""):
     """Forward POST requests to the FastAPI AI service.
 
-    CSRF exempt is safe here because:
-    - This endpoint only accepts POST
-    - For browser users, the standard Django session+CSRF protects the pages
-      that call this endpoint (CSRF token is sent via X-CSRFToken header)
-    - For API clients, JWT authentication is enforced by the calling views
-    - The FastAPI backend has its own access controls
-    - Rate limiting is applied at the Nginx/Django level
-
-    In production, CSRF tokens ARE verified by the middleware for non-safe
-    methods before reaching this view. The @csrf_exempt is needed because
-    the AI service endpoints have their own auth and may be called by
-    internal services without a Django session.
+    The browser-facing fallback requires an authenticated Django session and
+    normal CSRF validation. Production Nginx applies the same auth decision.
     """
     fastapi_url = getattr(settings, "FASTAPI_URL", "http://localhost:8001")
     target_url = f"{fastapi_url}/{path}"
@@ -46,7 +37,10 @@ def ai_proxy(request, path=""):
         resp = requests.post(
             target_url,
             json=body,
-            headers={"Content-Type": "application/json"},
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {AccessToken.for_user(request.user)}",
+            },
             timeout=120,
         )
         try:
@@ -65,6 +59,6 @@ def ai_proxy(request, path=""):
             {"detail": "AI service timed out. Please try again."},
             status=504,
         )
-    except Exception as exc:
+    except Exception:
         logger.exception("Unexpected error proxying to AI service")
-        return JsonResponse({"detail": str(exc)}, status=500)
+        return JsonResponse({"detail": "The AI request could not be completed."}, status=500)

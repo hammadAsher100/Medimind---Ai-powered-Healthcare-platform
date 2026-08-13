@@ -22,7 +22,7 @@ from .serializers import (
 )
 
 
-class MedicationViewSet(viewsets.ModelViewSet):
+class MedicationViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = MedicationSerializer
     permission_classes = [permissions.IsAuthenticated]
     queryset = Medication.objects.all()
@@ -90,10 +90,9 @@ def bulk_save_alerts(request):
     alerts = request.data.get("alerts", [])
     created = []
     for alert_data in alerts:
-        alert_data["user"] = request.user.pk
-        serializer = MedicationSafetyAlertSerializer(data=alert_data)
+        serializer = MedicationSafetyAlertSerializer(data=alert_data, context={"request": request})
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             created.append(serializer.data)
 
     return Response(

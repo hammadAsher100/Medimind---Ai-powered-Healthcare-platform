@@ -122,6 +122,7 @@ services:
       MKL_NUM_THREADS: "1"
       NUMEXPR_NUM_THREADS: "1"
       ENABLE_SHAP_EXPLANATIONS: "False"
+      FASTAPI_CORS_ORIGINS: ${FASTAPI_CORS_ORIGINS:-https://medimind-ai.online,https://www.medimind-ai.online,https://app.medimind-ai.online}
       ACTIVITY_TRACKING_ENABLED: ${ACTIVITY_TRACKING_ENABLED:-False}
       ACTIVITY_TABLE_NAME: ${ACTIVITY_TABLE_NAME:-}
       EC2_INSTANCE_ID: ${EC2_INSTANCE_ID:-}

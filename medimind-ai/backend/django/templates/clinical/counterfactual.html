@@ -150,6 +150,11 @@
 
 <script>
 (function() {
+  function escapeHTML(value) {
+    var node = document.createElement('div');
+    node.textContent = String(value == null ? '' : value);
+    return node.innerHTML;
+  }
   var modifications = [];
   var resultEl = document.getElementById('sim-results');
   var loadingEl = document.getElementById('sim-loading');
@@ -231,7 +236,7 @@
         details += ' (' + m.current + ' → ' + m.target + ')';
       }
       html += '<li class="mod-item">' +
-        '<span>' + details + '</span>' +
+        '<span>' + escapeHTML(details) + '</span>' +
         '<button data-remove-mod="' + i + '" class="mod-remove">✕ Remove</button>' +
         '</li>';
     });
@@ -307,7 +312,7 @@
       resultEl.style.display = 'block';
       resultEl.innerHTML = '<article class="card"><div class="card-body text-center" style="padding:var(--sp-8);">' +
         '<strong style="color:var(--danger)">Simulation Error</strong>' +
-        '<p class="stat-note" style="margin-top:var(--sp-2);">' + (err.message || 'Server may be unavailable. Please try again.') + '</p>' +
+        '<p class="stat-note" style="margin-top:var(--sp-2);">' + escapeHTML(err.message || 'Server may be unavailable. Please try again.') + '</p>' +
         '</div></article>';
     });
   });
@@ -328,7 +333,7 @@
       var deltaClass = delta > 1 ? 'delta-negative' : delta < -1 ? 'delta-positive' : 'delta-neutral';
       var arrow = delta > 0 ? '↑' : delta < 0 ? '↓' : '→';
       diseaseRows += '<tr>' +
-        '<td><strong style="text-transform:capitalize;">' + disease + '</strong></td>' +
+        '<td><strong style="text-transform:capitalize;">' + escapeHTML(disease) + '</strong></td>' +
         '<td>' + orig.toFixed(1) + '%</td>' +
         '<td>' + mod.toFixed(1) + '%</td>' +
         '<td class="' + deltaClass + '">' + arrow + ' ' + (delta > 0 ? '+' : '') + delta.toFixed(1) + '%</td>' +
@@ -342,12 +347,12 @@
       } else {
         detail += c.change.replace(/_/g, ' ');
       }
-      return '<li class="mod-list-empty">' + detail + ' <span style="color:' + (c.delta > 0 ? 'var(--danger)' : 'var(--success)') + '">(' + (c.delta > 0 ? '+' : '') + c.delta + '%)</span></li>';
+      return '<li class="mod-list-empty">' + escapeHTML(detail) + ' <span style="color:' + (c.delta > 0 ? 'var(--danger)' : 'var(--success)') + '">(' + (c.delta > 0 ? '+' : '') + escapeHTML(c.delta) + '%)</span></li>';
     }).join('');
 
     var recHtml = recs.map(function(r) {
       var isWarning = r.indexOf('⚠') !== -1 || r.indexOf('HIGH') !== -1 || r.indexOf('Warning') !== -1;
-      return '<li class="mod-list-empty" style="color:' + (isWarning ? 'var(--danger)' : 'var(--text-secondary)') + ';">' + r + '</li>';
+      return '<li class="mod-list-empty" style="color:' + (isWarning ? 'var(--danger)' : 'var(--text-secondary)') + ';">' + escapeHTML(r) + '</li>';
     }).join('');
 
     resultEl.innerHTML = '<section class="card">' +
@@ -360,7 +365,7 @@
       (recHtml ? '<div class="section-gap"><h4>Recommendations</h4><ul class="mod-list">' + recHtml + '</ul></div>' : '') +
       '<div class="section-gap">' +
       '<p class="clinical-disclaimer" style="margin:0;font-size:var(--text-xs);">' +
-      (data.disclaimer || 'This simulation is for educational purposes only. Actual health outcomes depend on many complex factors not captured here.') +
+      escapeHTML(data.disclaimer || 'This simulation is for educational purposes only. Actual health outcomes depend on many complex factors not captured here.') +
       '</p></div></section>';
   }
 

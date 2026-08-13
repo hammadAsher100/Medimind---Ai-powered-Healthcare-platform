@@ -5,6 +5,9 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "unsafe-development-secret")
+FIELD_ENCRYPTION_KEYS = [
+    key.strip() for key in os.environ.get("FIELD_ENCRYPTION_KEYS", "").split(",") if key.strip()
+]
 DEBUG = os.environ.get("DJANGO_DEBUG", "False").lower() == "true"
 ALLOWED_HOSTS = [host.strip() for host in os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1,django").split(",") if host.strip()]
 
@@ -15,6 +18,11 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "allauth",
+    "allauth.account",
+    "allauth.socialaccount",
+    "allauth.socialaccount.providers.google",
+    "allauth.socialaccount.providers.apple",
     "rest_framework",
     "rest_framework_simplejwt",
     "rest_framework_simplejwt.token_blacklist",
@@ -39,6 +47,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "allauth.account.middleware.AccountMiddleware",
     "medimind.activity.ActivityTrackingMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
@@ -49,6 +58,11 @@ ROOT_URLCONF = "medimind.urls"
 LOGIN_URL = "/login/"
 LOGIN_REDIRECT_URL = "/dashboard/"
 LOGOUT_REDIRECT_URL = "/login/"
+
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "allauth.account.auth_backends.AuthenticationBackend",
+]
 
 TEMPLATES = [
     {
@@ -94,7 +108,9 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 
-CSRF_COOKIE_HTTPONLY = True
+# The CSRF token is not an authentication secret. Keeping it readable allows
+# same-origin JavaScript to protect session-authenticated API requests.
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_USE_SESSIONS = os.environ.get("CSRF_USE_SESSIONS", "False").lower() == "true"
 
@@ -124,9 +140,78 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 AUTH_USER_MODEL = "authentication.User"
 FASTAPI_URL = os.environ.get("FASTAPI_URL", "http://fastapi:8001")
 
+# Social login credentials are read only from the process environment. Provider
+# buttons remain hidden until a complete credential set is configured.
+GOOGLE_OAUTH_CLIENT_ID = os.environ.get("GOOGLE_OAUTH_CLIENT_ID", "").strip()
+GOOGLE_OAUTH_CLIENT_SECRET = os.environ.get("GOOGLE_OAUTH_CLIENT_SECRET", "").strip()
+APPLE_OAUTH_CLIENT_ID = os.environ.get("APPLE_OAUTH_CLIENT_ID", "").strip()
+APPLE_OAUTH_KEY_ID = os.environ.get("APPLE_OAUTH_KEY_ID", "").strip()
+APPLE_OAUTH_TEAM_ID = os.environ.get("APPLE_OAUTH_TEAM_ID", "").strip()
+APPLE_OAUTH_PRIVATE_KEY = os.environ.get("APPLE_OAUTH_PRIVATE_KEY", "").replace("\\n", "\n").strip()
+
+SOCIAL_LOGIN_GOOGLE_ENABLED = bool(GOOGLE_OAUTH_CLIENT_ID and GOOGLE_OAUTH_CLIENT_SECRET)
+SOCIAL_LOGIN_APPLE_ENABLED = bool(
+    APPLE_OAUTH_CLIENT_ID
+    and APPLE_OAUTH_KEY_ID
+    and APPLE_OAUTH_TEAM_ID
+    and APPLE_OAUTH_PRIVATE_KEY
+)
+SOCIALACCOUNT_PROVIDERS = {
+    "google": {
+        "SCOPE": ["profile", "email"],
+        "AUTH_PARAMS": {"access_type": "online"},
+        "OAUTH_PKCE_ENABLED": True,
+        "EMAIL_AUTHENTICATION": True,
+        "EMAIL_AUTHENTICATION_AUTO_CONNECT": True,
+        **(
+            {
+                "APPS": [{
+                    "client_id": GOOGLE_OAUTH_CLIENT_ID,
+                    "secret": GOOGLE_OAUTH_CLIENT_SECRET,
+                    "key": "",
+                }]
+            }
+            if SOCIAL_LOGIN_GOOGLE_ENABLED
+            else {}
+        ),
+    },
+    "apple": {
+        "EMAIL_AUTHENTICATION": True,
+        "EMAIL_AUTHENTICATION_AUTO_CONNECT": True,
+        **(
+            {
+                "APPS": [{
+                    "client_id": APPLE_OAUTH_CLIENT_ID,
+                    "secret": APPLE_OAUTH_KEY_ID,
+                    "key": APPLE_OAUTH_TEAM_ID,
+                    "settings": {"certificate_key": APPLE_OAUTH_PRIVATE_KEY},
+                }]
+            }
+            if SOCIAL_LOGIN_APPLE_ENABLED
+            else {}
+        ),
+    },
+}
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_LOGIN_ON_GET = False
+SOCIALACCOUNT_STORE_TOKENS = False
+SOCIALACCOUNT_REQUESTS_TIMEOUT = 10
+ACCOUNT_EMAIL_VERIFICATION = "none"
+ACCOUNT_LOGIN_METHODS = {"username", "email"}
+ACCOUNT_SIGNUP_FIELDS = ["email*", "username*", "password1*", "password2*"]
+
+# Optional Cloudflare Turnstile protection for password login/registration.
+# When enabled, verification fails closed and the secret never reaches a page.
+TURNSTILE_ENABLED = os.environ.get("TURNSTILE_ENABLED", "False").strip().lower() == "true"
+TURNSTILE_SITE_KEY = os.environ.get("TURNSTILE_SITE_KEY", "").strip()
+TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "").strip()
+if TURNSTILE_ENABLED and not (TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY):
+    raise RuntimeError("TURNSTILE_ENABLED requires TURNSTILE_SITE_KEY and TURNSTILE_SECRET_KEY")
+
 # ── CORS ─────────────────────────────────────────────────
 CORS_ALLOW_ALL_ORIGINS = os.environ.get("CORS_ALLOW_ALL_ORIGINS", "False").lower() == "true"
 CORS_ALLOWED_ORIGINS = [origin.strip() for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:18000").split(",") if origin.strip()]
+CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.environ.get("CSRF_TRUSTED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000,http://localhost:18000").split(",") if origin.strip()]
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = ["DELETE", "GET", "OPTIONS", "PATCH", "POST", "PUT"]
 CORS_ALLOW_HEADERS = ["accept", "authorization", "content-type", "x-csrftoken", "x-requested-with"]
@@ -142,6 +227,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {"anon": "20/hour", "user": "200/hour"},
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 50,
+    "NUM_PROXIES": 1,
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
 }
 

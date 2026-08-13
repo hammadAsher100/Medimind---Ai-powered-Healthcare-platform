@@ -37,6 +37,7 @@ class ModelFeedbackViewSet(viewsets.ModelViewSet):
 class AuditEventViewSet(viewsets.ModelViewSet):
     serializer_class = AuditEventSerializer
     permission_classes = [permissions.IsAuthenticated]
+    http_method_names = ["get", "post", "head", "options"]
 
     def get_queryset(self):
         return AuditEvent.objects.filter(user=self.request.user)
@@ -50,9 +51,8 @@ class AuditEventViewSet(viewsets.ModelViewSet):
 def record_audit_event(request):
     """Record an audit event."""
     data = request.data.copy()
-    data["user"] = request.user.pk
     serializer = AuditEventSerializer(data=data)
     if serializer.is_valid():
-        serializer.save()
+        serializer.save(user=request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

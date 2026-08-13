@@ -31,11 +31,12 @@ class ContentSecurityPolicyMiddleware:
         # CSP — relaxed enough for Chart.js CDN and inline scripts
         csp_parts = [
             "default-src 'self'",
-            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com 'unsafe-inline' 'unsafe-eval'",
+            "script-src 'self' https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://challenges.cloudflare.com 'unsafe-inline' 'unsafe-eval'",
             "style-src 'self' https://fonts.googleapis.com https://cdn.jsdelivr.net 'unsafe-inline'",
             "img-src 'self' data: blob:",
             "font-src 'self' https://fonts.gstatic.com data:",
-            "connect-src 'self' http://localhost:* http://127.0.0.1:*",
+            "connect-src 'self' https://challenges.cloudflare.com http://localhost:* http://127.0.0.1:*",
+            "frame-src 'self' https://accounts.google.com https://appleid.apple.com https://challenges.cloudflare.com",
             "frame-ancestors 'none'",
             "form-action 'self'",
             "base-uri 'self'",

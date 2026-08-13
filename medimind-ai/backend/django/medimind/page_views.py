@@ -36,18 +36,27 @@ def _common_context(request, title):
     }
 
 
+def _auth_context():
+    return {
+        "social_google_enabled": settings.SOCIAL_LOGIN_GOOGLE_ENABLED,
+        "social_apple_enabled": settings.SOCIAL_LOGIN_APPLE_ENABLED,
+        "turnstile_enabled": settings.TURNSTILE_ENABLED,
+        "turnstile_site_key": settings.TURNSTILE_SITE_KEY,
+    }
+
+
 @require_GET
 def login_page(request):
     if request.user.is_authenticated:
         return redirect("dashboard_page")
-    return render(request, "auth/login.html")
+    return render(request, "auth/login.html", _auth_context())
 
 
 @require_GET
 def register_page(request):
     if request.user.is_authenticated:
         return redirect("dashboard_page")
-    return render(request, "auth/register.html")
+    return render(request, "auth/register.html", _auth_context())
 
 
 @require_POST

@@ -14,7 +14,7 @@ from health_score.models import HealthScore
 from timeline.services import create_timeline_event
 
 from .models import MedicalReport
-from .serializers import MedicalReportSerializer
+from .serializers import MedicalReportSerializer, MedicalReportSummarySerializer
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +260,7 @@ class ReportUploadView(ReportJSONErrorMixin, generics.CreateAPIView):
 
 
 class ReportListView(ReportJSONErrorMixin, generics.ListAPIView):
-    serializer_class = MedicalReportSerializer
+    serializer_class = MedicalReportSummarySerializer
 
     def get_queryset(self):
         return MedicalReport.objects.filter(user=self.request.user)

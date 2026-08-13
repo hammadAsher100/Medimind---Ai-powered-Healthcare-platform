@@ -414,3 +414,45 @@
     grid-template-columns: 1fr;
   }
 }
+.honeypot-field {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.social-login-stack {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.social-login-stack form {
+  margin: 0;
+}
+
+.social-login-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  min-height: 2.75rem;
+}
+
+.social-login-button span {
+  width: 1.25rem;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.social-login-button .apple-symbol {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI Symbol", sans-serif;
+  font-size: 1.25rem;
+}
+
+.auth-captcha {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}

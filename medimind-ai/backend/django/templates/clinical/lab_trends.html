@@ -111,6 +111,11 @@
 </style>
 
 <script>
+function escapeHTML(value) {
+  const node = document.createElement('div');
+  node.textContent = String(value ?? '');
+  return node.innerHTML;
+}
 function loadTrend() {
   const testName = document.getElementById('test-select').value;
   if (!testName) return;
@@ -164,35 +169,35 @@ function loadTrend() {
     if (data.alerts && data.alerts.length) {
       alertHtml = '<div class="card" style="margin-bottom:var(--sp-4)"><div class="card-body">' +
         data.alerts.map(a =>
-          '<div class="finding-item ' + (a.severity === 'critical' ? 'finding-critical' : 'finding-warning') + '">' + a.message + '</div>'
+          '<div class="finding-item ' + (a.severity === 'critical' ? 'finding-critical' : 'finding-warning') + '">' + escapeHTML(a.message) + '</div>'
         ).join('') +
         '</div></div>';
     }
     resultEl.innerHTML = `
       <div class="card">
-        <div class="card-header"><h3 class="card-title">Trend: ${data.test_name}</h3></div>
+        <div class="card-header"><h3 class="card-title">Trend: ${escapeHTML(data.test_name)}</h3></div>
         <div class="card-body">
           <div class="metric-strip">
             <div class="metric-strip-item">
               <span class="metric-strip-label">Latest Value</span>
-              <span class="metric-strip-value">${data.latest_value ?? 'N/A'}</span>
+              <span class="metric-strip-value">${escapeHTML(data.latest_value ?? 'N/A')}</span>
             </div>
             <div class="metric-strip-item">
               <span class="metric-strip-label">Status</span>
-              <span class="metric-strip-value">${data.latest_status}</span>
+              <span class="metric-strip-value">${escapeHTML(data.latest_status)}</span>
             </div>
             <div class="metric-strip-item">
               <span class="metric-strip-label">Observations</span>
-              <span class="metric-strip-value">${data.observation_count}</span>
+              <span class="metric-strip-value">${escapeHTML(data.observation_count)}</span>
             </div>
             <div class="metric-strip-item">
               <span class="metric-strip-label">Trend</span>
-              <span class="metric-strip-value">${data.trends.length > 0 ? data.trends[data.trends.length-1].trend_direction : 'N/A'}</span>
+              <span class="metric-strip-value">${escapeHTML(data.trends.length > 0 ? data.trends[data.trends.length-1].trend_direction : 'N/A')}</span>
             </div>
           </div>
-          <p style="margin-top:var(--sp-3)">${data.summary}</p>
+          <p style="margin-top:var(--sp-3)">${escapeHTML(data.summary)}</p>
           ${alertHtml}
-          <p class="clinical-disclaimer">${data.disclaimer || ''}</p>
+          <p class="clinical-disclaimer">${escapeHTML(data.disclaimer || '')}</p>
         </div>
       </div>`;
   })

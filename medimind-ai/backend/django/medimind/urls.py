@@ -36,6 +36,7 @@ urlpatterns = [
     path("export/fhir/", page_views.fhir_export_page, name="fhir_export_page"),
     path("reviews/", page_views.reviews_page, name="reviews_page"),
     path("admin/", admin.site.urls),
+    path("accounts/", include("allauth.urls")),
     path("api/auth/", include("authentication.urls")),
     path("api/auth/token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
     path("api/users/", include("users.urls")),

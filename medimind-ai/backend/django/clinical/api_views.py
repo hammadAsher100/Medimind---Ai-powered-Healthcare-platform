@@ -80,10 +80,9 @@ def bulk_create_observations(request):
 
     created = []
     for obs_data in observations:
-        obs_data["user"] = request.user.pk
-        serializer = ClinicalObservationSerializer(data=obs_data)
+        serializer = ClinicalObservationSerializer(data=obs_data, context={"request": request})
         if serializer.is_valid():
-            serializer.save()
+            serializer.save(user=request.user)
             created.append(serializer.data)
 
     return Response(
